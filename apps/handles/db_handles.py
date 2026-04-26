@@ -207,6 +207,15 @@ async def get_random_cultures(limit: int = 5) -> List[Dict]:
         return [dict(row) for row in rows]
 
 
+async def get_all_cultures() -> List[Dict]:
+    """Получает все элементы культуры в случайном порядке без повторов."""
+    async with database.session() as session:
+        stmt = text("SELECT * FROM cultures ORDER BY RAND()")
+        result = await session.execute(stmt)
+        rows = result.mappings().all()
+        return [dict(row) for row in rows]
+
+
 async def get_culture_answer_values(
     field_name: str,
     limit: int,
