@@ -129,6 +129,15 @@ async def notify_maintenance(application):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Обработчик команды /start с проверкой подписки"""
+    is_subscribed = await check_subscription(update, context)
+
+    if not is_subscribed:
+        await update.message.reply_text(
+            "🚫 Для использования бота необходимо подписаться на наш канал!\n\n"
+            "🔔 После подписки нажмите кнопку 'Я подписался'",
+            reply_markup=InlineKeyboardMarkup(subscribe_keyboard)
+        )
+        return MAIN_MENU
 
     if "user" not in context.user_data:
         user = update.effective_user
@@ -145,6 +154,7 @@ get_message_train_type = {
     "training": "тренировки 🎯",
     "marathon": "марафона 🏃",
     "intensive": "интенсива ⚡️"
+
 }
 
 
@@ -152,6 +162,32 @@ async def check_subscription_after_start(update: Update, context: ContextTypes.D
     """Проверяет подписку после нажатия кнопки"""
     query = update.callback_query
     await query.answer()
+
+
+    is_subscribed = await check_subscription(update, context)
+
+    if not is_subscribed:
+
+        reply_markup = InlineKeyboardMarkup(subscribe_keyboard)
+
+        try:
+            await query.edit_message_text(
+                "❌ Подписка не найдена!\n\n"
+                "Пожалуйста, подпишитесь на канал и нажмите кнопку снова.\n"
+                "🔄 Попробуйте ещё раз",
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            if "Message is not modified" in str(e):
+                await query.message.reply_text(
+                    "❌ Подписка всё ещё не найдена!\n\n"
+                    "Пожалуйста, подпишитесь на канал и нажмите кнопку снова.",
+                    reply_markup=reply_markup
+                )
+            else:
+                raise e
+
+        return MAIN_MENU
 
     if "user" not in context.user_data:
         user = update.effective_user

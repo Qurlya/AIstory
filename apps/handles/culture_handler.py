@@ -175,7 +175,7 @@ async def culture_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 train_type_en_to_ru = {
     'intensive': 'интенсив',
-    'training': 'тренировка',
+    'training': 'тренировку',
 }
 
 async def _show_culture_card(update: Update, context: ContextTypes.DEFAULT_TYPE, force_new_message: bool = False):
@@ -185,7 +185,7 @@ async def _show_culture_card(update: Update, context: ContextTypes.DEFAULT_TYPE,
     categories = _available_categories(card)
 
     caption = (
-        f"🏛 **Архитектура: {train_type_en_to_ru[session['mode']].capitalize()}**\n"
+        f"🏛 **Архитектура**\n"
         f"Карточка №{session['index'] + 1} из {len(session['cards'])}\n\n"
         "Заполните все данные о строении на фото:"
     )

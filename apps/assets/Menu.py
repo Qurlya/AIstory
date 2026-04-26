@@ -29,7 +29,6 @@ era_diff_keyboard = [
 ]
 
 notification_and_back_keyboard = [
-        [InlineKeyboardButton("🔕 Уведомления", callback_data='notifications')],
         [InlineKeyboardButton("⬅️ Назад", callback_data='back_training')],
 ]
 
