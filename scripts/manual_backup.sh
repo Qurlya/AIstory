@@ -11,7 +11,7 @@ BACKUP_FILE="$BACKUP_DIR/manual_$DATE.sql.gz"
 
 echo "📦 Создание ручного бэкапа..."
 
-docker exec aistory_database_1 mariadb-dump \
+docker exec aistory-database-1 mariadb-dump \
   -u${DB_USER} \
   -p${DB_PASS} \
   ${DB_NAME} | gzip > $BACKUP_FILE
