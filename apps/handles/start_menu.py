@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden
 import logging
-from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord
+from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord, culture_choose_menu
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
 from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users
@@ -105,7 +105,6 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return False
 
 
-
 async def notify_maintenance(application):
 
     users = await get_all_users()
@@ -189,6 +188,15 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         context.user_data['train_type'] = query.data
         return TRAINING
 
+    elif query.data == 'culture':
+        reply_markup = InlineKeyboardMarkup(culture_choose_menu)
+        await query.edit_message_text(
+            getTrainingOptionalMenu('culture'),
+            reply_markup=reply_markup
+        )
+        context.user_data['train_type'] = 'culture'
+        return TRAINING
+
     elif query.data == 'back_main':
         reply_markup = InlineKeyboardMarkup(main_menu_keybord)
         await query.edit_message_text(
@@ -244,6 +252,14 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         week_marathon_correct = user.week_marathon_true_cards
         week_marathon_percent = (week_marathon_correct / week_marathon_total * 100) if week_marathon_total > 0 else 0
 
+        culture_total = user.culture_completed_cards
+        culture_correct = user.culture_true_cards
+        culture_percent = (culture_correct / culture_total * 100) if culture_total > 0 else 0
+
+        week_culture_total = user.week_culture_completed_cards
+        week_culture_correct = user.week_culture_true_cards
+        week_culture_percent = (week_culture_correct / week_culture_total * 100) if week_culture_total > 0 else 0
+
         # Формируем сообщение
         message = (
             f"📊 Ваша статистика\n\n"
@@ -256,7 +272,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"   • Полностью пройдено: {user.intensive_completed_full}\n"
             f"🏃 Марафон:\n"
             f"   • Карточки: {marathon_correct}/{marathon_total} ({marathon_percent:.1f}%)\n"
-            f"   • Полностью пройдено: {user.marathon_completed_full}\n\n"
+            f"   • Полностью пройдено: {user.marathon_completed_full}\n"
+            f"🏛 Архитектура:\n"
+            f"   • Карточки: {culture_correct}/{culture_total} ({culture_percent:.1f}%)\n"
+            f"   • Полностью пройдено: {user.culture_completed_full}\n\n"
             f"📅 За текущую неделю:\n"
             f"🎯 Тренировка:\n"
             f"   • Карточки: {week_training_correct}/{week_training_total} ({week_training_percent:.1f}%)\n"
@@ -266,7 +285,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"   • Полностью пройдено: {user.week_intensive_completed_full}\n"
             f"🏃 Марафон:\n"
             f"   • Карточки: {week_marathon_correct}/{week_marathon_total} ({week_marathon_percent:.1f}%)\n"
-            f"   • Полностью пройдено: {user.week_marathon_completed_full}\n\n"
+            f"   • Полностью пройдено: {user.week_marathon_completed_full}\n"
+            f"🏛 Архитектура:\n"
+            f"   • Карточки: {week_culture_correct}/{week_culture_total} ({week_culture_percent:.1f}%)\n"
+            f"   • Полностью пройдено: {user.week_culture_completed_full}\n\n"
             f"🔥 Текущая серия: {user.streak_days} дней"
         )
 

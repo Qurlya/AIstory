@@ -27,6 +27,10 @@ from .start_menu import (
     start,
     main_menu
 )
+from .culture_handler import (
+    culture_dispatch,
+)
+
 __all__ = [
     "start",
     "main_menu",
@@ -45,4 +49,5 @@ __all__ = [
     "handle_chronology",
     "check_chronology",
     "start_chronology_mode",
+    "culture_dispatch",
 ]

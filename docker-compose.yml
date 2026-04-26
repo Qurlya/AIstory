@@ -11,9 +11,6 @@ services:
       target: "history"
     env_file:
       - ".env"
-    environment:
-      BOT_RECYCLE_SECONDS: "${BOT_RECYCLE_SECONDS:-0}"
-      BOT_RESTART_DELAY_SECONDS: "${BOT_RESTART_DELAY_SECONDS:-5}"
     volumes:
       - "./apps/:/app/"
       - "./database/:/app/database/"
@@ -74,7 +71,15 @@ services:
       "
     networks:
       - local
-
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - "${ADMINER_PORT}:8080"
+    depends_on:
+      - database
+    networks:
+      local:
 networks:
   local:
 

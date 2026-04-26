@@ -12,6 +12,7 @@ from assets import getMainMenu, getTrainingOptionalMenu, getTrainingTestMenu, ge
 from constants import MAIN_MENU, TRAINING, START_TEST, SETTING_TEST
 from utils import generate_smart_answers_event_date, generate_smart_answers_date_event, normalize_date_format
 from .db_handles import get_eras_name, get_events_with_filters, increment_field, update_streak
+from .culture_handler import culture_dispatch
 logger = logging.getLogger(__name__)
 
 difficulty_id_to_name = {
@@ -177,6 +178,9 @@ async def training_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             
         await query.edit_message_text(menu_text, reply_markup=reply_markup)
         return SETTING_TEST
+
+    elif query.data in ('culture_training', 'culture_intensive'):
+        return await culture_dispatch(update, context)
 
     elif query.data == 'back_training':
         reply_markup = InlineKeyboardMarkup(get_choose_train(train_type == 'training'))

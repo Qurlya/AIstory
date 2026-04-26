@@ -4,6 +4,7 @@ main_menu_keybord = [
         [InlineKeyboardButton("🎯 Тренировка", callback_data='training')],
         [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
         [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
+        [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
         [InlineKeyboardButton("🔥 Держи стрик", callback_data='streak')],
         [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
 ]
@@ -43,4 +44,10 @@ subscribe_keyboard = [
 
 noth_keyboard = [
         [InlineKeyboardButton("📊 Главное меню", callback_data="back_main")],
+]
+
+culture_choose_menu = [
+        [InlineKeyboardButton("🎯 Тренировка", callback_data='culture_training')],
+        [InlineKeyboardButton("⚡ Интенсив", callback_data='culture_intensive')],
+        [InlineKeyboardButton("⬅️ Назад", callback_data='back_main')],
 ]

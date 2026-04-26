@@ -10,7 +10,8 @@ from constants import SETTING_TEST, MAIN_MENU, TRAINING, START_TEST
 from handles import (
     start, main_menu, training_menu, start_test_menu, handle_answer, next_question, cancel,
     era_diff_menu, settings_menu, continue_intensive_mode, start_test_with_all_questions,
-    back_to_training_from_test, save_and_exit_marathon, handle_chronology, check_chronology, start_chronology_mode
+    back_to_training_from_test, save_and_exit_marathon, handle_chronology, check_chronology, start_chronology_mode,
+    culture_dispatch
 )
 from database import database
 from handles.start_menu import check_subscription_after_start, notify_maintenance, send_daily_streak_reminder
@@ -56,12 +57,12 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             MAIN_MENU: [
-                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|streak|stats|back_main)$'),
+                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|streak|stats|back_main)$'),
                 CallbackQueryHandler(check_subscription_after_start, pattern='^check_sub_after_start$'),
             ],
             TRAINING: [
                 CallbackQueryHandler(training_menu,
-                                     pattern='^(chronology|date_event|event_date|back_main|back_training|continue_marathon)$')
+                                     pattern='^(chronology|date_event|event_date|back_main|back_training|continue_marathon|culture_training|culture_intensive|culture_exit_main)$')
             ],
             SETTING_TEST: [
                 CallbackQueryHandler(era_diff_menu,
@@ -82,6 +83,7 @@ def main():
                 CallbackQueryHandler(check_chronology, pattern='^check_chronology$'),
                 CallbackQueryHandler(start_chronology_mode, pattern='^chronology_retry$'),
                 CallbackQueryHandler(save_and_exit_marathon, pattern='^save_and_exit$'),
+                CallbackQueryHandler(culture_dispatch, pattern='^culture_'),
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],

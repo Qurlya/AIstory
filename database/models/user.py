@@ -74,6 +74,22 @@ class UserModel(Base):
     week_marathon_true_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # ===============================
+    # 🔹 CULTURE
+    # ===============================
+
+    culture_completed_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    culture_completed_full: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    culture_true_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # ===============================
+    # 🔹 НЕДЕЛЬНАЯ CULTURE
+    # ===============================
+
+    week_culture_completed_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_culture_completed_full: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_culture_true_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # ===============================
     # 🔥 STREAK (огонёк)
     # ===============================
 
