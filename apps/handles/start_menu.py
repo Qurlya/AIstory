@@ -14,7 +14,7 @@ from assets import (
 )
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
-from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats
+from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats, update_streak
 from handles.db_handles import get_streak_state_by_last_activity
 import asyncio
 import random
@@ -75,10 +75,16 @@ async def send_daily_streak_reminder(context):
 
     for user in users:
         try:
+            await update_streak(user.telegram_id, reset_if_missed=True)
+            user = await get_user_by_telegram_id(user.telegram_id)
+            if not user:
+                continue
+
             last_activity = user.last_activity
-            if last_activity.tzinfo is None:
-                last_activity = last_activity.replace(tzinfo=moscow_tz)
-            last_activity = last_activity.astimezone(moscow_tz).date()
+            if last_activity:
+                if last_activity.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=moscow_tz)
+                last_activity = last_activity.astimezone(moscow_tz).date()
 
             text = get_streak_message(user.streak_days)
 

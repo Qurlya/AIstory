@@ -150,7 +150,7 @@ async def get_user_by_telegram_id(telegram_id: int) -> UserModel | None:
         stmt = select(UserModel).where(UserModel.telegram_id == telegram_id)
         return await session.scalar(stmt)
 
-async def update_streak(telegram_id: int) -> None:
+async def update_streak(telegram_id: int, reset_if_missed: bool = False) -> None:
     async with database.session() as session:
         stmt = select(UserModel).where(UserModel.telegram_id == telegram_id)
         user = await session.scalar(stmt)
@@ -167,13 +167,17 @@ async def update_streak(telegram_id: int) -> None:
         if streak_state == "today":
             return
 
+        if reset_if_missed and streak_state != "older":
+            return
+
         if streak_state == "yesterday":
             update_values["streak_days"] = UserModel.streak_days + 1
 
         else:
-            update_values["streak_days"] = 1
+            update_values["streak_days"] = 0 if reset_if_missed else 1
 
-        update_values["last_activity"] = now
+        if not reset_if_missed:
+            update_values["last_activity"] = now
 
         stmt = (
             update(UserModel)
