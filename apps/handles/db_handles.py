@@ -150,7 +150,7 @@ async def get_user_by_telegram_id(telegram_id: int) -> UserModel | None:
         stmt = select(UserModel).where(UserModel.telegram_id == telegram_id)
         return await session.scalar(stmt)
 
-async def update_streak(telegram_id: int) -> None:
+async def update_streak(telegram_id: int, reset_if_missed: bool = False) -> None:
     async with database.session() as session:
         stmt = select(UserModel).where(UserModel.telegram_id == telegram_id)
         user = await session.scalar(stmt)
@@ -159,26 +159,25 @@ async def update_streak(telegram_id: int) -> None:
             return
 
         now = datetime.utcnow()
-        today = now.date()
-        yesterday = today - timedelta(days=1)
-        day_before_yesterday = today - timedelta(days=2)
-
-        last_activity_date = (
-            user.last_activity.date() if user.last_activity else None
-        )
+        streak_state = get_streak_state_by_last_activity(user.last_activity, now=now)
+        last_activity_date = user.last_activity.date() if user.last_activity else None
 
         update_values = {}
 
-        if last_activity_date == today:
+        if streak_state == "today":
             return
 
-        if last_activity_date == yesterday:
+        if reset_if_missed and streak_state != "older":
+            return
+
+        if streak_state == "yesterday":
             update_values["streak_days"] = UserModel.streak_days + 1
 
         else:
-            update_values["streak_days"] = 1
+            update_values["streak_days"] = 0 if reset_if_missed else 1
 
-        update_values["last_activity"] = now
+        if not reset_if_missed:
+            update_values["last_activity"] = now
 
         stmt = (
             update(UserModel)
@@ -188,6 +187,28 @@ async def update_streak(telegram_id: int) -> None:
 
         await session.execute(stmt)
         await session.commit()
+
+
+def get_streak_state_by_last_activity(last_activity: datetime | None, now: datetime | None = None) -> str:
+    """
+    Возвращает состояние стрика по тем же правилам, что используются в update_streak.
+    Возможные значения:
+    - "today"
+    - "yesterday"
+    - "older"
+    """
+    if now is None:
+        now = datetime.utcnow()
+
+    today = now.date()
+    yesterday = today - timedelta(days=1)
+    last_activity_date = last_activity.date() if last_activity else None
+
+    if last_activity_date == today:
+        return "today"
+    if last_activity_date == yesterday:
+        return "yesterday"
+    return "older"
 
 async def get_all_users() -> List[UserModel]:
     """Получает всех пользователей из базы данных"""

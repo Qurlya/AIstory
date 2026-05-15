@@ -1,12 +1,22 @@
+
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden
 import logging
 import os
-from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord, culture_choose_menu, get_ads_text
+from assets import (
+    getMainMenu,
+    getTrainingOptionalMenu,
+    main_menu_keybord,
+    culture_choose_menu,
+    get_ads_text,
+    get_streak_extinguished_text,
+    get_streak_warning_text,
+)
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
-from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats
+from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats, update_streak
+from handles.db_handles import get_streak_state_by_last_activity
 import asyncio
 import random
 import pytz
@@ -60,23 +70,61 @@ def get_streak_message(days: int) -> str:
         return random.choice(MOTIVATIONAL_MESSAGES)
 
 
+EXTINGUISHED_MESSAGES = [
+    "❄️ Твой исторический огонёк полностью погас (🔥 0 дней). Ты давно не занимался, самое время начать заново!",
+    "💨 Ветер времени задул твой стрик (🔥 0 дней). Возвращайся к тренировкам, чтобы разжечь его вновь!",
+    "🧊 Увы, твой стрик прервался и обнулился. Но Рим тоже не за один день строился, начни новую серию!"
+]
+
+WARNING_MESSAGES = [
+    "⚠️ Внимание! Твой огонёк (🔥 {day} дней) может погаснуть! Заходи на тренировку, чтобы поддержать его сегодня.",
+    "⏳ Твоя серия составляет 🔥 {day} дней. Вчера ты был молодец, но сегодня ещё не занимался. Не теряй прогресс!",
+    "🔥 Твой стрик — {day} дней. Чтобы он не сгорел дотла, нужно пройти хотя бы один тест сегодня!"
+]
+
+BURNING_MESSAGES = [
+    "✨ Твой огонёк ярко горит! Серия: 🔥 {day} дней. Сегодня ты уже позанимался, не забудь вернуться завтра!",
+    "🛡️ Отличная работа! Сегодняшняя норма выполнена, стрик защищён (🔥 {day} дней). Жду тебя завтра!",
+    "🏆 Ты на коне! Стрик составляет 🔥 {day} дней. Главное — не сбавлять темп завтра."
+]
+
+from datetime import datetime
 async def send_daily_streak_reminder(context):
     bot = context.bot
     users = await get_all_users()
 
+    today = datetime.now(moscow_tz).date()
+
     for user in users:
         try:
-            last_activity = user.last_activity
-            if last_activity.tzinfo is None:
-                last_activity = last_activity.replace(tzinfo=moscow_tz)
-            last_activity = last_activity.astimezone(moscow_tz).date()
+            await update_streak(user.telegram_id, reset_if_missed=True)
 
-            text = get_streak_message(user.streak_days)
+            user = await get_user_by_telegram_id(user.telegram_id)
+            if not user:
+                continue
+
+            last_activity = user.last_activity
+            if last_activity:
+                if last_activity.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=moscow_tz)
+                last_activity = last_activity.astimezone(moscow_tz).date()
+
+            delta_days = (today - last_activity).days if last_activity else None
+            streak_days = user.streak_days
+
+            if delta_days is None or delta_days >= 2:
+                text = random.choice(EXTINGUISHED_MESSAGES)
+
+            elif delta_days == 1:
+                text = random.choice(WARNING_MESSAGES).format(day=streak_days)
+
+            else:
+                text = random.choice(BURNING_MESSAGES).format(day=streak_days)
 
             logger.info(
                 "[STREAK] Отправляю %s - стрик %s, last_activity %s",
                 user.telegram_id,
-                user.streak_days,
+                streak_days,
                 last_activity,
             )
 
@@ -85,6 +133,8 @@ async def send_daily_streak_reminder(context):
                 text=text,
                 reply_markup=InlineKeyboardMarkup(noth_keyboard)
             )
+
+            await asyncio.sleep(0.05)
 
             logger.info("[STREAK] Сообщение успешно отправлено %s", user.telegram_id)
 
@@ -181,11 +231,15 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
 
+    user = update.effective_user
+
     if "user" not in context.user_data:
-        user = update.effective_user
         telegram_id = user.id
         db_user = await add_user(telegram_id)
         context.user_data["user"] = db_user
+
+    telegram_id = user.id
+    await update_streak(telegram_id, reset_if_missed=True)
 
     if query.data in ['training', 'marathon', 'intensive']:
         reply_markup = InlineKeyboardMarkup(get_choose_train(query.data == 'training'))
@@ -219,8 +273,19 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         telegram_id = user.id
 
         this_user = await get_user_by_telegram_id(telegram_id)
+        if not this_user:
+            reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
+            await query.edit_message_text("Не удалось найти данные по стрику.", reply_markup=reply_markup)
+            return MAIN_MENU
 
-        message = get_streak_message(this_user.streak_days)
+        streak_state = get_streak_state_by_last_activity(this_user.last_activity)
+
+        if streak_state == "older":
+            message = get_streak_extinguished_text()
+        elif streak_state == "yesterday":
+            message = f"{get_streak_message(this_user.streak_days)}\n\n{get_streak_warning_text()}"
+        else:
+            message = "Твой огонёк горит 🔥"
 
         reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
         await query.edit_message_text(message, reply_markup=reply_markup)
