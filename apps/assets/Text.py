@@ -121,3 +121,11 @@ def getDifficultyMenu():
 Какую сложность вы хотите?
         """
     )
+
+
+def get_streak_extinguished_text() -> str:
+    return "💤 Ты не занимался больше двух дней — огонёк погас. Возвращайся сегодня и разожжём его заново!"
+
+
+def get_streak_warning_text() -> str:
+    return "⚠️ Не забудь сегодня позаниматься, иначе огонёк погаснет."

@@ -3,13 +3,22 @@ from telegram.ext import ContextTypes
 from telegram.error import Forbidden
 import logging
 import os
-from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord, culture_choose_menu, get_ads_text
+from assets import (
+    getMainMenu,
+    getTrainingOptionalMenu,
+    main_menu_keybord,
+    culture_choose_menu,
+    get_ads_text,
+    get_streak_extinguished_text,
+    get_streak_warning_text,
+)
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
 from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats
 import asyncio
 import random
 import pytz
+from datetime import datetime, timedelta
 
 moscow_tz = pytz.timezone("Europe/Moscow")
 logger = logging.getLogger(__name__)
@@ -219,8 +228,24 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         telegram_id = user.id
 
         this_user = await get_user_by_telegram_id(telegram_id)
+        if not this_user:
+            reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
+            await query.edit_message_text("Не удалось найти данные по стрику.", reply_markup=reply_markup)
+            return MAIN_MENU
 
-        message = get_streak_message(this_user.streak_days)
+        now_moscow = datetime.now(moscow_tz).date()
+        last_activity = this_user.last_activity
+        last_activity_date = (
+            last_activity.astimezone(moscow_tz).date()
+            if last_activity else None
+        )
+
+        if last_activity_date and last_activity_date <= now_moscow - timedelta(days=2):
+            message = get_streak_extinguished_text()
+        elif last_activity_date == now_moscow - timedelta(days=1):
+            message = f"{get_streak_message(this_user.streak_days)}\n\n{get_streak_warning_text()}"
+        else:
+            message = "Твой огонёк горит 🔥"
 
         reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
         await query.edit_message_text(message, reply_markup=reply_markup)

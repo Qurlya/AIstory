@@ -6,6 +6,8 @@ from .Text import (
     getIntensiveTestMenu,
     getMarathonTestMenu,
     get_ads_text,
+    get_streak_extinguished_text,
+    get_streak_warning_text,
 )
 from .Menu import (
     main_menu_keybord,
@@ -22,6 +24,8 @@ __all__ = [
     "getIntensiveTestMenu",
     "getMarathonTestMenu",
     "get_ads_text",
+    "get_streak_extinguished_text",
+    "get_streak_warning_text",
     "main_menu_keybord",
     "choose_train_menu",
     "era_diff_keyboard",
