@@ -15,10 +15,10 @@ from assets import (
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
 from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats
+from handles.db_handles import get_streak_state_by_last_activity
 import asyncio
 import random
 import pytz
-from datetime import datetime, timedelta
 
 moscow_tz = pytz.timezone("Europe/Moscow")
 logger = logging.getLogger(__name__)
@@ -233,16 +233,11 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             await query.edit_message_text("Не удалось найти данные по стрику.", reply_markup=reply_markup)
             return MAIN_MENU
 
-        now_moscow = datetime.now(moscow_tz).date()
-        last_activity = this_user.last_activity
-        last_activity_date = (
-            last_activity.astimezone(moscow_tz).date()
-            if last_activity else None
-        )
+        streak_state = get_streak_state_by_last_activity(this_user.last_activity)
 
-        if last_activity_date and last_activity_date <= now_moscow - timedelta(days=2):
+        if streak_state == "older":
             message = get_streak_extinguished_text()
-        elif last_activity_date == now_moscow - timedelta(days=1):
+        elif streak_state == "yesterday":
             message = f"{get_streak_message(this_user.streak_days)}\n\n{get_streak_warning_text()}"
         else:
             message = "Твой огонёк горит 🔥"
