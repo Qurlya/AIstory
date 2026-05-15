@@ -57,7 +57,7 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             MAIN_MENU: [
-                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|streak|stats|back_main)$'),
+                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|ads|admin|streak|stats|back_main)$'),
                 CallbackQueryHandler(check_subscription_after_start, pattern='^check_sub_after_start$'),
             ],
             TRAINING: [

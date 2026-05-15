@@ -21,6 +21,12 @@ def getMainMenu(status="start"):
     """)
 
 
+def get_ads_text() -> str:
+    return """
+Здесь должна быть реклама
+    """
+
+
 
 def getTrainingOptionalMenu(option: str) -> str:
     if option == "marathon":

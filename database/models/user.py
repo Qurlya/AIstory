@@ -97,3 +97,11 @@ class UserModel(Base):
     last_activity: Mapped[datetime.datetime] = mapped_column(default=datetime.datetime(1970, 1, 1, 0, 0, 0))
 
     last_update_info: Mapped[datetime.datetime] = mapped_column()
+
+    ad_clicks_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_clicks_week: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_clicks_month: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_clicked_once: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_clicked_week: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_clicked_month: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ad_last_click_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

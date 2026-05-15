@@ -2,16 +2,25 @@ from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden
 import logging
-from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord, culture_choose_menu
+import os
+from assets import getMainMenu, getTrainingOptionalMenu, main_menu_keybord, culture_choose_menu, get_ads_text
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
-from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users
+from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats
 import asyncio
 import random
 import pytz
 
 moscow_tz = pytz.timezone("Europe/Moscow")
 logger = logging.getLogger(__name__)
+ADMIN_TELEGRAM_IDS = {
+    int(x.strip()) for x in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip().isdigit()
+}
+
+
+def get_main_keyboard_for_user(telegram_id: int):
+    from assets.Menu import get_main_menu_keyboard
+    return get_main_menu_keyboard(telegram_id in ADMIN_TELEGRAM_IDS)
 
 SPECIAL_STREAK_MESSAGES = {
     1: "🎉 И ты начал! Первый день — самый важный. Ждём тебя завтра!",
@@ -130,13 +139,12 @@ async def notify_maintenance(application):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Обработчик команды /start с проверкой подписки"""
 
+    telegram_id = update.effective_user.id
     if "user" not in context.user_data:
-        user = update.effective_user
-        telegram_id = user.id
         db_user = await add_user(telegram_id)
         context.user_data["user"] = db_user
 
-    reply_markup = InlineKeyboardMarkup(main_menu_keybord)
+    reply_markup = InlineKeyboardMarkup(get_main_keyboard_for_user(telegram_id))
     await update.message.reply_text(getMainMenu(), reply_markup=reply_markup)
     return MAIN_MENU
 
@@ -159,7 +167,8 @@ async def check_subscription_after_start(update: Update, context: ContextTypes.D
         db_user = await add_user(telegram_id)
         context.user_data["user"] = db_user
 
-    reply_markup = InlineKeyboardMarkup(main_menu_keybord)
+    telegram_id = update.effective_user.id
+    reply_markup = InlineKeyboardMarkup(get_main_keyboard_for_user(telegram_id))
 
     await query.edit_message_text(
         getMainMenu(),
@@ -198,7 +207,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return TRAINING
 
     elif query.data == 'back_main':
-        reply_markup = InlineKeyboardMarkup(main_menu_keybord)
+        telegram_id = update.effective_user.id
+        reply_markup = InlineKeyboardMarkup(get_main_keyboard_for_user(telegram_id))
         await query.edit_message_text(
             getMainMenu(),
             reply_markup=reply_markup
@@ -292,6 +302,35 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"🔥 Текущая серия: {user.streak_days} дней"
         )
 
+        reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
+        await query.edit_message_text(message, reply_markup=reply_markup)
+
+    elif query.data == 'ads':
+        telegram_id = update.effective_user.id
+        await register_ad_click(telegram_id)
+        reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
+        await query.edit_message_text(get_ads_text(), reply_markup=reply_markup)
+
+    elif query.data == 'admin':
+        telegram_id = update.effective_user.id
+        if telegram_id not in ADMIN_TELEGRAM_IDS:
+            reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
+            await query.edit_message_text("У вас нет доступа к администрированию.", reply_markup=reply_markup)
+            return MAIN_MENU
+
+        stats = await get_ads_stats()
+        message = (
+            "🛠 Статистика по кнопке «Реклама»\n\n"
+            f"📊 Общая:\n"
+            f"• Всего нажатий: {stats['total']}\n"
+            f"• Уникальных пользователей: {stats['unique_total']}\n\n"
+            f"📅 За неделю:\n"
+            f"• Нажатий: {stats['week']}\n"
+            f"• Уникальных пользователей: {stats['unique_week']}\n\n"
+            f"🗓 За месяц:\n"
+            f"• Нажатий: {stats['month']}\n"
+            f"• Уникальных пользователей: {stats['unique_month']}"
+        )
         reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
         await query.edit_message_text(message, reply_markup=reply_markup)
 
