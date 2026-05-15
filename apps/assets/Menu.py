@@ -6,8 +6,16 @@ main_menu_keybord = [
         [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
         [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
         [InlineKeyboardButton("🔥 Держи стрик", callback_data='streak')],
+        [InlineKeyboardButton("📣 Помощь при поступлении", callback_data='ads')],
         [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
 ]
+
+
+def get_main_menu_keyboard(is_admin: bool = False) -> list:
+    keyboard = [row[:] for row in main_menu_keybord]
+    if is_admin:
+        keyboard.append([InlineKeyboardButton("🛠 Администрирование", callback_data='admin')])
+    return keyboard
 
 choose_train_menu = [
         [InlineKeyboardButton("Хронология", callback_data='chronology')],

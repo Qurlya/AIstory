@@ -5,6 +5,7 @@ from .Text import (
     getTrainingTestMenu,
     getIntensiveTestMenu,
     getMarathonTestMenu,
+    get_ads_text,
 )
 from .Menu import (
     main_menu_keybord,
@@ -20,6 +21,7 @@ __all__ = [
     "getTrainingTestMenu",
     "getIntensiveTestMenu",
     "getMarathonTestMenu",
+    "get_ads_text",
     "main_menu_keybord",
     "choose_train_menu",
     "era_diff_keyboard",

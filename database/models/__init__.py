@@ -1,3 +1,3 @@
 from .user import UserModel
-from .event import EventModel, EraModel, PeriodModel
+from .event import EventModel, EraModel
 from .culture import CultureModel
