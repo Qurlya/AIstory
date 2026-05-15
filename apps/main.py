@@ -46,8 +46,8 @@ def main():
 
         app.job_queue.run_daily(
             send_daily_streak_reminder,
-            time=time(hour=12, minute=37, tzinfo=MOSCOW_TZ),
-            days=(0,1,2,3,4,5,6),  # каждый день недели
+            time=time(hour=12, minute=00, tzinfo=MOSCOW_TZ),
+            days=(0,1,2,3,4,5,6),
             name="daily_streak",
         )
 
@@ -57,7 +57,7 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             MAIN_MENU: [
-                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|streak|stats|back_main)$'),
+                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|ads|admin|streak|stats|back_main)$'),
                 CallbackQueryHandler(check_subscription_after_start, pattern='^check_sub_after_start$'),
             ],
             TRAINING: [
