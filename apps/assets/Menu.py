@@ -5,8 +5,8 @@ main_menu_keybord = [
         [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
         [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
         [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
-        [InlineKeyboardButton("📣 Реклама", callback_data='ads')],
         [InlineKeyboardButton("🔥 Держи стрик", callback_data='streak')],
+        [InlineKeyboardButton("📣 Помощь при поступлении", callback_data='ads')],
         [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
 ]
 

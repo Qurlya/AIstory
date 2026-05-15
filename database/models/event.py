@@ -38,21 +38,3 @@ class EraModel(Base):
     events: Mapped[list[EventModel]] = relationship(
         EventModel, back_populates="era",
     )
-    period: Mapped["PeriodModel | None"] = relationship(
-        "PeriodModel", back_populates="eras",
-    )
-
-
-class PeriodModel(Base):
-    uid = (
-        "name",
-    )
-    __tablename__ = "periods"
-    __table_args__ = (UniqueConstraint(*uid),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(50))
-    
-    eras: Mapped[list[EraModel]] = relationship(
-        EraModel, back_populates="period",
-    )
