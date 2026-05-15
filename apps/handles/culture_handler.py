@@ -243,8 +243,7 @@ async def _show_culture_card(update: Update, context: ContextTypes.DEFAULT_TYPE,
             await context.bot.send_photo(update.effective_chat.id, photo=open(image_path, "rb"), caption=caption,
                                          reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         else:
-            await context.bot.send_message(update.effective_chat.id, text=f"⚠️ Фото не найдено\n\n{caption}",
-                                           reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+            await context.bot.send_message(update.effective_chat.id, text=f"⚠️ Фото не найдено\n\n{caption}{image_path}{image_path.exists()}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     else:
         try:
             await query.edit_message_caption(caption=caption, reply_markup=InlineKeyboardMarkup(keyboard),
