@@ -42,7 +42,7 @@ def main():
     application = Application.builder().token(BOT_TOKEN).job_queue(JobQueue()).build()
 
     async def startup_tasks(app):
-        await notify_maintenance(app)
+        asyncio.create_task(notify_maintenance(application))
 
         app.job_queue.run_daily(
             send_daily_streak_reminder,
