@@ -1,4 +1,4 @@
-
+from utils.subscription_check import check_subscription
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden
@@ -145,40 +145,25 @@ async def send_daily_streak_reminder(context):
 
     return MAIN_MENU
 
-
-async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    user_id = update.effective_user.id
-
-    try:
-        chat_member = await context.bot.get_chat_member(
-            chat_id="-1003732977673",
-            user_id=user_id,
-        )
-
-        subscribed_statuses = ['member', 'administrator', 'creator']
-
-        return chat_member.status in subscribed_statuses
-
-    except Exception as e:
-        print(f"Ошибка при проверке подписки: {e}")
-        return False
-
-
 async def notify_maintenance(application):
+    is_notify_enabled = os.getenv("ENABLE_MAINTENANCE_NOTIFY", "False").lower() == "true"
+
+    if not is_notify_enabled:
+        return
 
     users = await get_all_users()
 
     for user in users:
         try:
             await application.bot.send_message(
-                chat_id=user.telegram_id,   # ✅ правильно
+                chat_id=user.telegram_id,
                 text=(
                     "⚙️ Бот был перезапущен после технического обслуживания.\n\n"
                     "Пожалуйста, нажмите /start чтобы продолжить работу."
                 )
             )
 
-            await asyncio.sleep(0.05)  # защита от flood limit
+            await asyncio.sleep(0.05)
 
         except Forbidden:
             logger.warning("Пользователь %s заблокировал бота", user.telegram_id)
