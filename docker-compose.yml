@@ -23,8 +23,14 @@ services:
       target: "database"
       context: .
     restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    command:
+      - mariadbd
+      - --innodb-use-native-aio=0
+      - --innodb-flush-log-at-trx-commit=2
     environment:
-      MARIADB_RANDOM_ROOT_PASSWORD: 1
       MARIADB_USER: "${DB_USER}"
       MARIADB_PASSWORD: "${DB_PASS}"
       MARIADB_DATABASE: "${DB_NAME}"

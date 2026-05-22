@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR "/app"
 CMD ["python", "main.py"]
 
-FROM mariadb:latest AS database
+FROM mariadb:10.5 AS database

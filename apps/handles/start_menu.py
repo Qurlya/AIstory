@@ -268,6 +268,16 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await query.answer()
 
     user = update.effective_user
+    
+    is_subscribed = await check_subscription(update, context)
+    
+    if not is_subscribed:
+        await query.message.reply_text(
+            "🚫 Для использования бота необходимо подписаться на наш канал!\n\n"
+            "🔔 После подписки нажмите кнопку 'Я подписался'",
+            reply_markup=InlineKeyboardMarkup(subscribe_keyboard)
+        )
+        return MAIN_MENU
 
     if "user" not in context.user_data:
         telegram_id = user.id
