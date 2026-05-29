@@ -11,7 +11,14 @@ from assets import getMainMenu, getTrainingOptionalMenu, getTrainingTestMenu, ge
     main_menu_keybord, era_diff_keyboard, notification_and_back_keyboard
 from constants import MAIN_MENU, TRAINING, START_TEST, SETTING_TEST
 from utils import generate_smart_answers_event_date, generate_smart_answers_date_event, normalize_date_format
-from .db_handles import get_eras_name, get_events_with_filters, increment_field, update_streak
+from .db_handles import (
+    apply_chronology_rating_points,
+    apply_date_rating_points,
+    get_eras_name,
+    get_events_with_filters,
+    increment_field,
+    update_streak,
+)
 from .culture_handler import culture_dispatch
 logger = logging.getLogger(__name__)
 
@@ -922,6 +929,12 @@ async def handle_answer_all(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             if 'correct_answers_indices' in context.user_data and current_index in context.user_data['correct_answers_indices']:
                 context.user_data['correct_answers_indices'].remove(current_index)
 
+        await apply_date_rating_points(
+            update.effective_user.id,
+            context.user_data.get('test_difficulty'),
+            is_correct,
+        )
+
         answered_questions.add(current_index)
         context.user_data['test_answered_questions'] = answered_questions
         if len(answered_questions) >= 10:
@@ -1240,6 +1253,8 @@ async def check_chronology(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     percent = (correct / 5) * 100
+
+    await apply_chronology_rating_points(update.effective_user.id, correct, 5)
 
     if correct == 5:
         await update_streak(telegram_id=update.effective_user.id)

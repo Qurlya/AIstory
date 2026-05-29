@@ -8,7 +8,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from assets import getMainMenu, main_menu_keybord
-from handles.db_handles import get_all_cultures, get_culture_answer_values, increment_field, update_streak
+from handles.db_handles import (
+    apply_culture_rating_points,
+    get_all_cultures,
+    get_culture_answer_values,
+    increment_field,
+    update_streak,
+)
 from constants import MAIN_MENU, START_TEST
 
 CATEGORY_DEFS = [
@@ -324,6 +330,7 @@ async def _check_current_card(update: Update, context: ContextTypes.DEFAULT_TYPE
         if session.get("mode") == "intensive":
             session["intensive_wrong_cards"].append(card)
 
+    await apply_culture_rating_points(update.effective_user.id, results)
     await update_streak(telegram_id=update.effective_user.id)
 
     await _show_culture_card(update, context)
