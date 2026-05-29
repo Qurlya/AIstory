@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from html import escape
 from io import BytesIO
 from typing import List, Dict
 import logging
@@ -326,29 +327,40 @@ async def _reset_rating_if_needed(session, rating: UserRatingModel) -> None:
         await session.flush()
 
 
-async def add_rating_points(telegram_id: int, delta: float) -> None:
+async def add_rating_points(telegram_id: int, delta: float) -> float:
     async with database.session() as session:
         user = await session.scalar(select(UserModel).where(UserModel.telegram_id == telegram_id))
         if not user:
-            return
+            return 0
         await _ensure_user_satellites(session, user)
         rating = user.rating
         await _reset_rating_if_needed(session, rating)
-        rating.monthly_points = max(0, float(rating.monthly_points or 0) + delta)
+        old_points = float(rating.monthly_points or 0)
+        new_points = max(0, old_points + delta)
+        rating.monthly_points = new_points
         await session.commit()
+        return new_points - old_points
 
 
-async def apply_date_rating_points(telegram_id: int, difficulty: int | None, is_correct: bool) -> None:
+def format_rating_delta(delta: float) -> str:
+    if delta > 0:
+        return f"📈 Рейтинг вырос на +{delta:g}"
+    if delta < 0:
+        return f"📉 Рейтинг упал на {delta:g}"
+    return "➖ Рейтинг не изменился"
+
+
+async def apply_date_rating_points(telegram_id: int, difficulty: int | None, is_correct: bool) -> float:
     positive = {1: 0.5, 2: 1.0, 3: 1.5}.get(difficulty, 0.5)
     negative = -0.25 if difficulty == 1 else -0.5
-    await add_rating_points(telegram_id, positive if is_correct else negative)
+    return await add_rating_points(telegram_id, positive if is_correct else negative)
 
 
-async def apply_chronology_rating_points(telegram_id: int, correct: int, total: int = 5) -> None:
-    await add_rating_points(telegram_id, correct * 0.5 - (total - correct) * 0.25)
+async def apply_chronology_rating_points(telegram_id: int, correct: int, total: int = 5) -> float:
+    return await add_rating_points(telegram_id, correct * 0.5 - (total - correct) * 0.25)
 
 
-async def apply_culture_rating_points(telegram_id: int, results: dict[str, bool]) -> None:
+async def apply_culture_rating_points(telegram_id: int, results: dict[str, bool]) -> float:
     weights = {
         "title": (0.5, -0.25),
         "city": (0.5, -0.25),
@@ -358,7 +370,7 @@ async def apply_culture_rating_points(telegram_id: int, results: dict[str, bool]
         "architect": (1.5, -0.5),
     }
     delta = sum((weights[key][0] if is_correct else weights[key][1]) for key, is_correct in results.items() if key in weights)
-    await add_rating_points(telegram_id, delta)
+    return await add_rating_points(telegram_id, delta)
 
 
 async def get_rating_settings(telegram_id: int) -> UserRatingModel | None:
@@ -387,14 +399,14 @@ async def toggle_rating_display_as(telegram_id: int) -> None:
 
 
 def _format_rating_name(user: UserModel) -> str:
-    if user.rating.display_as == 0 and user.username:
-        return f"@{user.username.lstrip('@')}"
-    if user.username:
-        return user.username.lstrip('@')
-    return f"Пользователь {user.telegram_id}"
+    display_name = user.username.lstrip('@') if user.username else f"Пользователь {user.telegram_id}"
+    if user.rating.display_as == 0:
+        linked_text = f"@{display_name}" if user.username else display_name
+        return f'<a href="tg://user?id={user.telegram_id}">{escape(linked_text)}</a>'
+    return escape(display_name)
 
 
-async def get_leaderboards(limit: int = 10) -> dict[str, list[tuple[str, float | int]]]:
+async def get_leaderboards(limit: int = 5, telegram_id: int | None = None) -> dict[str, object]:
     async with database.session() as session:
         now = datetime.utcnow()
         await session.execute(
@@ -407,7 +419,6 @@ async def get_leaderboards(limit: int = 10) -> dict[str, list[tuple[str, float |
             .join(UserRatingModel, UserModel.rating_id == UserRatingModel.id)
             .where(UserRatingModel.show_in_rating == 1)
             .order_by(desc(UserRatingModel.monthly_points), UserModel.id)
-            .limit(limit)
         )
         streak_stmt = (
             select(UserModel)
@@ -415,17 +426,33 @@ async def get_leaderboards(limit: int = 10) -> dict[str, list[tuple[str, float |
             .join(UserStreakModel, UserModel.streak_id == UserStreakModel.id)
             .where(UserRatingModel.show_in_rating == 1)
             .order_by(desc(UserStreakModel.streak_days), UserModel.id)
-            .limit(limit)
         )
-        point_users = list((await session.execute(points_stmt)).scalars().all())
-        streak_users = list((await session.execute(streak_stmt)).scalars().all())
-        for user in point_users + streak_users:
+        all_point_users = list((await session.execute(points_stmt)).scalars().all())
+        all_streak_users = list((await session.execute(streak_stmt)).scalars().all())
+        for user in all_point_users + all_streak_users:
             await _ensure_user_satellites(session, user)
             await _reset_rating_if_needed(session, user.rating)
-        point_users.sort(key=lambda u: (u.rating.monthly_points, -u.id), reverse=True)
+        all_point_users.sort(key=lambda u: (u.rating.monthly_points, -u.id), reverse=True)
+        all_streak_users.sort(key=lambda u: (u.streak.streak_days, -u.id), reverse=True)
+
+        points_place = None
+        streak_place = None
+        if telegram_id is not None:
+            for idx, user in enumerate(all_point_users, 1):
+                if user.telegram_id == telegram_id:
+                    points_place = idx
+                    break
+            for idx, user in enumerate(all_streak_users, 1):
+                if user.telegram_id == telegram_id:
+                    streak_place = idx
+                    break
+
         return {
-            "points": [(_format_rating_name(user), round(user.rating.monthly_points or 0, 2)) for user in point_users],
-            "streaks": [(_format_rating_name(user), user.streak.streak_days or 0) for user in streak_users],
+            "points": [(_format_rating_name(user), round(user.rating.monthly_points or 0, 2)) for user in all_point_users[:limit]],
+            "streaks": [(_format_rating_name(user), user.streak.streak_days or 0) for user in all_streak_users[:limit]],
+            "points_place": points_place,
+            "streak_place": streak_place,
+            "participants_count": len(all_point_users),
         }
 
 

@@ -339,7 +339,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             await toggle_rating_display_as(telegram_id)
 
         user = await get_user_by_telegram_id(telegram_id)
-        boards = await get_leaderboards()
+        boards = await get_leaderboards(limit=5, telegram_id=telegram_id)
         points = boards['points']
         streaks = boards['streaks']
 
@@ -348,16 +348,22 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 return "Пока никто не участвует."
             return "\n".join(f"{idx}. {name} — {value:g} {suffix}" for idx, (name, value) in enumerate(rows, 1))
 
+        points_place = boards.get('points_place')
+        streak_place = boards.get('streak_place')
+        points_place_text = f"{points_place} место" if points_place else "вы не участвуете"
+        streak_place_text = f"{streak_place} место" if streak_place else "вы не участвуете"
         participation = "✅ Участвую в рейтинге" if user.rating.show_in_rating else "🚫 Не участвую в рейтинге"
         display = "🏷 Отображается мой тег" if user.rating.display_as == 0 else "👤 Отображается моё имя"
         message = (
             "🏆 Рейтинг\n\n"
-            "📅 Ежемесячный рейтинг по очкам:\n"
+            "📅 Ежемесячный рейтинг по очкам (топ-5):\n"
             f"{render_rows(points, 'оч.')}\n\n"
-            "🔥 Рейтинг по стрикам:\n"
+            "🔥 Рейтинг по стрикам (топ-5):\n"
             f"{render_rows(streaks, 'дн.')}\n\n"
             f"Ваши очки в текущем месяце: {user.rating.monthly_points:g}\n"
-            f"Ваш стрик: {user.streak_days} дней\n\n"
+            f"Ваше место по очкам: {points_place_text}\n"
+            f"Ваш стрик: {user.streak_days} дней\n"
+            f"Ваше место по стрику: {streak_place_text}\n\n"
             "Очки месяца не опускаются ниже 0 и сбрасываются при наступлении нового календарного месяца."
         )
         keyboard = [
@@ -365,7 +371,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             [InlineKeyboardButton(display, callback_data='rating_toggle_display')],
             [InlineKeyboardButton("⬅️ Назад", callback_data='back_main')],
         ]
-        await query.edit_message_text(message, reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
     elif query.data == 'stats':
         user = update.effective_user

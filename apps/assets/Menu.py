@@ -5,17 +5,14 @@ main_menu_keybord = [
     [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
     [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
     [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
-    [InlineKeyboardButton("📣 Предбанник с Умскул", url='https://view.edpmetric.com/click?o=48&a=972')],
     [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
     [InlineKeyboardButton("🏆 Рейтинг", callback_data='rating')],
+    [InlineKeyboardButton("🛠 Администрирование", callback_data='admin')],
 ]
 
 
 def get_main_menu_keyboard(is_admin: bool = False) -> list:
-    keyboard = [row[:] for row in main_menu_keybord]
-    if is_admin:
-        keyboard.append([InlineKeyboardButton("🛠 Администрирование", callback_data='admin')])
-    return keyboard
+    return [row[:] for row in main_menu_keybord]
 
 
 choose_train_menu = [
