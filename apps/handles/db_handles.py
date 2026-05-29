@@ -399,10 +399,9 @@ async def toggle_rating_display_as(telegram_id: int) -> None:
 
 
 def _format_rating_name(user: UserModel) -> str:
-    display_name = user.username.lstrip('@') if user.username else f"Пользователь {user.telegram_id}"
+    display_name = user.username or f"Пользователь {user.telegram_id}"
     if user.rating.display_as == 0:
-        linked_text = f"@{display_name}" if user.username else display_name
-        return f'<a href="tg://user?id={user.telegram_id}">{escape(linked_text)}</a>'
+        return f'<a href="tg://user?id={user.telegram_id}">{escape(display_name)}</a>'
     return escape(display_name)
 
 

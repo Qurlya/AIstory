@@ -33,14 +33,16 @@ import pytz
 
 moscow_tz = pytz.timezone("Europe/Moscow")
 logger = logging.getLogger(__name__)
-ADMIN_TELEGRAM_IDS = {
-    int(x.strip()) for x in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip().isdigit()
-}
+
+def get_admin_telegram_ids() -> set[int]:
+    return {
+        int(x.strip()) for x in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip().isdigit()
+    }
 
 
 def get_main_keyboard_for_user(telegram_id: int):
     from assets.Menu import get_main_menu_keyboard
-    return get_main_menu_keyboard(telegram_id in ADMIN_TELEGRAM_IDS)
+    return get_main_menu_keyboard(telegram_id in get_admin_telegram_ids())
 
 SPECIAL_STREAK_MESSAGES = {
     1: "🎉 И ты начал! Первый день — самый важный. Ждём тебя завтра!",
@@ -195,7 +197,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     telegram_id = update.effective_user.id
     if "user" not in context.user_data:
-        db_user = await add_user(telegram_id, update.effective_user.username or update.effective_user.full_name)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     reply_markup = InlineKeyboardMarkup(get_main_keyboard_for_user(telegram_id))
@@ -245,7 +247,7 @@ async def check_subscription_after_start(update: Update, context: ContextTypes.D
     if "user" not in context.user_data:
         user = update.effective_user
         telegram_id = user.id
-        db_user = await add_user(telegram_id, update.effective_user.username or update.effective_user.full_name)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     telegram_id = update.effective_user.id
@@ -276,7 +278,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if "user" not in context.user_data:
         telegram_id = user.id
-        db_user = await add_user(telegram_id, update.effective_user.username or update.effective_user.full_name)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     telegram_id = user.id
@@ -353,7 +355,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         points_place_text = f"{points_place} место" if points_place else "вы не участвуете"
         streak_place_text = f"{streak_place} место" if streak_place else "вы не участвуете"
         participation = "✅ Участвую в рейтинге" if user.rating.show_in_rating else "🚫 Не участвую в рейтинге"
-        display = "🏷 Отображается мой тег" if user.rating.display_as == 0 else "👤 Отображается моё имя"
+        display = "🔗 Имя кликабельное" if user.rating.display_as == 0 else "👤 Имя без ссылки"
         message = (
             "🏆 Рейтинг\n\n"
             "📅 Ежемесячный рейтинг по очкам (топ-5):\n"
@@ -461,7 +463,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     elif query.data == 'admin':
         telegram_id = update.effective_user.id
-        if telegram_id not in ADMIN_TELEGRAM_IDS:
+        if telegram_id not in get_admin_telegram_ids():
             reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
             await query.edit_message_text("У вас нет доступа к администрированию.", reply_markup=reply_markup)
             return MAIN_MENU

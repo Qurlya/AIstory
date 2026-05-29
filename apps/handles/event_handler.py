@@ -8,7 +8,7 @@ import base64
 from datetime import datetime
 
 from assets import getMainMenu, getTrainingOptionalMenu, getTrainingTestMenu, getIntensiveTestMenu, getMarathonTestMenu, getDifficultyMenu, get_choose_train, \
-    main_menu_keybord, era_diff_keyboard, notification_and_back_keyboard
+    main_menu_keybord, era_diff_keyboard, notification_and_back_keyboard, get_main_menu_keyboard
 from constants import MAIN_MENU, TRAINING, START_TEST, SETTING_TEST
 from utils import generate_smart_answers_event_date, generate_smart_answers_date_event, normalize_date_format
 from .db_handles import (
@@ -205,7 +205,8 @@ async def training_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             await query.answer("❌ Не удалось загрузить сохраненный прогресс", show_alert=True)
             return SETTING_TEST
     elif query.data == 'back_main':
-        reply_markup = InlineKeyboardMarkup(main_menu_keybord)
+        from handles.start_menu import get_admin_telegram_ids
+        reply_markup = InlineKeyboardMarkup(get_main_menu_keyboard(update.effective_user.id in get_admin_telegram_ids()))
         await query.edit_message_text(getMainMenu(), reply_markup=reply_markup)
         return MAIN_MENU
 

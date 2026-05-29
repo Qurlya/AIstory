@@ -7,7 +7,7 @@ from typing import Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from assets import getMainMenu, main_menu_keybord
+from assets import getMainMenu, get_main_menu_keyboard, main_menu_keybord
 from handles.db_handles import (
     apply_culture_rating_points,
     format_rating_delta,
@@ -160,10 +160,11 @@ async def culture_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.delete()
         except:
             pass
+        from handles.start_menu import get_admin_telegram_ids
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=getMainMenu(),
-            reply_markup=InlineKeyboardMarkup(main_menu_keybord)
+            reply_markup=InlineKeyboardMarkup(get_main_menu_keyboard(update.effective_user.id in get_admin_telegram_ids()))
         )
         return MAIN_MENU
 

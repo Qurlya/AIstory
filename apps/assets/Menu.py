@@ -7,12 +7,14 @@ main_menu_keybord = [
     [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
     [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
     [InlineKeyboardButton("🏆 Рейтинг", callback_data='rating')],
-    [InlineKeyboardButton("🛠 Администрирование", callback_data='admin')],
 ]
 
 
 def get_main_menu_keyboard(is_admin: bool = False) -> list:
-    return [row[:] for row in main_menu_keybord]
+    keyboard = [row[:] for row in main_menu_keybord]
+    if is_admin:
+        keyboard.append([InlineKeyboardButton("🛠 Администрирование", callback_data='admin')])
+    return keyboard
 
 
 choose_train_menu = [
