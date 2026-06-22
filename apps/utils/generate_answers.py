@@ -6,8 +6,33 @@ import logging
 logger = logging.getLogger(__name__)
 MAX_GENERATION_ATTEMPTS = 30
 
+def _stringify_date(date_value) -> str:
+    if hasattr(date_value, "strftime"):
+        return date_value.strftime("%Y-%m-%d")
+    return str(date_value)
+
+
+def _is_full_date(date_value) -> bool:
+    return bool(re.match(r'^\d{4}-\d{2}-\d{2}', _stringify_date(date_value).strip()))
+
+
+def _generate_full_date_options(correct_date, all_questions: List[Dict]) -> List[str]:
+    same_type_dates = []
+    for q in all_questions:
+        date_value = q.get('date')
+        if _is_full_date(date_value) and _stringify_date(date_value).strip() != _stringify_date(correct_date).strip():
+            same_type_dates.append(date_value)
+
+    unique_dates = list(dict.fromkeys(same_type_dates))
+    random.shuffle(unique_dates)
+    wrong_answers = unique_dates[:3]
+    all_answers = [normalize_date_format(correct_date)] + [normalize_date_format(d) for d in wrong_answers]
+    random.shuffle(all_answers)
+    return all_answers
+
+
 def extract_year_or_interval(date_str: str) -> tuple:
-    date_str = date_str.strip()
+    date_str = _stringify_date(date_str).strip()
 
     if '.' in date_str and not date_str.startswith('00'):
         parts = date_str.split('.')
@@ -28,6 +53,17 @@ def extract_year_or_interval(date_str: str) -> tuple:
 
 
 def normalize_date_format(date_str: str) -> str:
+    date_str = _stringify_date(date_str).strip()
+
+    full_date_match = re.match(r'^(\d{4})-(\d{2})-(\d{2})', date_str)
+    if full_date_match:
+        year, month, day = full_date_match.groups()
+        return f"{day}.{month}.{year}"
+
+    pretty_date_match = re.match(r'^(\d{2})\.(\d{2})\.(\d{4})$', date_str)
+    if pretty_date_match:
+        return date_str
+
     date_type, *parts = extract_year_or_interval(date_str)
 
     if date_type == 'year':
@@ -42,6 +78,9 @@ def normalize_date_format(date_str: str) -> str:
 
 async def generate_smart_answers(correct_question: Dict, all_questions: List[Dict]) -> List[str]:
     correct_date = correct_question['date']
+
+    if _is_full_date(correct_date):
+        return _generate_full_date_options(correct_date, all_questions)
 
     correct_type, *correct_parts = extract_year_or_interval(correct_date)
 
@@ -199,6 +238,9 @@ async def generate_smart_answers(correct_question: Dict, all_questions: List[Dic
 
 async def generate_smart_answers_event_date(correct_question: Dict, all_questions: List[Dict]) -> List[str]:
     correct_date = correct_question['date']
+
+    if _is_full_date(correct_date):
+        return _generate_full_date_options(correct_date, all_questions)
 
     correct_type, *correct_parts = extract_year_or_interval(correct_date)
 

@@ -7,8 +7,15 @@ from typing import Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from assets import getMainMenu, main_menu_keybord
-from handles.db_handles import get_all_cultures, get_culture_answer_values, increment_field, update_streak
+from assets import getMainMenu, get_main_menu_keyboard, main_menu_keybord
+from handles.db_handles import (
+    apply_culture_rating_points,
+    format_rating_delta,
+    get_all_cultures,
+    get_culture_answer_values,
+    increment_field,
+    update_streak,
+)
 from constants import MAIN_MENU, START_TEST
 
 CATEGORY_DEFS = [
@@ -105,7 +112,10 @@ async def start_culture_mode(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     try:
         if not cards:
-            await query.edit_message_text("❌ В базе данных нет карточек архитектуры.")
+            await query.edit_message_text(
+                "❌ В базе данных нет карточек архитектуры.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Главное меню", callback_data="back_main")]])
+            )
             return MAIN_MENU
 
         if mode == "intensive":
@@ -126,6 +136,7 @@ async def start_culture_mode(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "options_by_card": {},
             "intensive_wrong_cards": [],
             "intensive_round": 1,
+            "rating_delta": 0,
         }
 
         await _show_culture_card(update, context, force_new_message=True)
@@ -149,10 +160,11 @@ async def culture_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.delete()
         except:
             pass
+        from handles.start_menu import get_admin_telegram_ids
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=getMainMenu(),
-            reply_markup=InlineKeyboardMarkup(main_menu_keybord)
+            reply_markup=InlineKeyboardMarkup(get_main_menu_keyboard(update.effective_user.id in get_admin_telegram_ids()))
         )
         return MAIN_MENU
 
@@ -324,6 +336,8 @@ async def _check_current_card(update: Update, context: ContextTypes.DEFAULT_TYPE
         if session.get("mode") == "intensive":
             session["intensive_wrong_cards"].append(card)
 
+    rating_delta = await apply_culture_rating_points(update.effective_user.id, results)
+    session["rating_delta"] = session.get("rating_delta", 0) + rating_delta
     await update_streak(telegram_id=update.effective_user.id)
 
     await _show_culture_card(update, context)
@@ -358,7 +372,8 @@ async def _show_culture_final(update: Update, context: ContextTypes.DEFAULT_TYPE
         "📊 **Результаты тренировки**\n\n"
         f"✅ Правильно: {session['correct_count']}\n"
         f"❌ Ошибочно: {session['incorrect_count']}\n"
-        f"📚 Всего карточек: {session['total_passed']}\n\n"
+        f"📚 Всего карточек: {session['total_passed']}\n"
+        f"{format_rating_delta(session.get('rating_delta', 0))}\n\n"
         "**Ошибки по категориям:**\n"
         f"{errors_text}"
     )

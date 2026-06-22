@@ -5,8 +5,8 @@ main_menu_keybord = [
     [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
     [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
     [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
-    [InlineKeyboardButton("📣 Предбанник с Умскул", url='https://view.edpmetric.com/click?o=48&a=972')],
     [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
+    [InlineKeyboardButton("🏆 Рейтинг", callback_data='rating')],
 ]
 
 

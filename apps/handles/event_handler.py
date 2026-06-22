@@ -8,10 +8,18 @@ import base64
 from datetime import datetime
 
 from assets import getMainMenu, getTrainingOptionalMenu, getTrainingTestMenu, getIntensiveTestMenu, getMarathonTestMenu, getDifficultyMenu, get_choose_train, \
-    main_menu_keybord, era_diff_keyboard, notification_and_back_keyboard
+    main_menu_keybord, era_diff_keyboard, notification_and_back_keyboard, get_main_menu_keyboard
 from constants import MAIN_MENU, TRAINING, START_TEST, SETTING_TEST
 from utils import generate_smart_answers_event_date, generate_smart_answers_date_event, normalize_date_format
-from .db_handles import get_eras_name, get_events_with_filters, increment_field, update_streak
+from .db_handles import (
+    apply_chronology_rating_points,
+    apply_date_rating_points,
+    format_rating_delta,
+    get_eras_name,
+    get_events_with_filters,
+    increment_field,
+    update_streak,
+)
 from .culture_handler import culture_dispatch
 logger = logging.getLogger(__name__)
 
@@ -197,7 +205,8 @@ async def training_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             await query.answer("❌ Не удалось загрузить сохраненный прогресс", show_alert=True)
             return SETTING_TEST
     elif query.data == 'back_main':
-        reply_markup = InlineKeyboardMarkup(main_menu_keybord)
+        from handles.start_menu import get_admin_telegram_ids
+        reply_markup = InlineKeyboardMarkup(get_main_menu_keyboard(update.effective_user.id in get_admin_telegram_ids()))
         await query.edit_message_text(getMainMenu(), reply_markup=reply_markup)
         return MAIN_MENU
 
@@ -608,14 +617,16 @@ async def start_test_with_all_questions(update: Update, context: ContextTypes.DE
 
     if not questions:
         await query.edit_message_text(
-            "❌ Не удалось найти вопросы с выбранными параметрами.\n"
+            "❌ Не удалось найти вопросы с выбранными параметрами.\n",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Главное меню", callback_data="back_main")]])
         )
 
-        return SETTING_TEST
+        return MAIN_MENU
 
     context.user_data['test_questions'] = questions
     context.user_data['test_total_questions'] = len(questions)
     context.user_data['test_answered_questions'] = set()
+    context.user_data['rating_delta'] = 0
 
     await show_next_question_all(update, context)
     return START_TEST
@@ -728,6 +739,9 @@ async def show_final_results(update: Update, context: ContextTypes.DEFAULT_TYPE)
     difficulty_id = context.user_data.get('test_difficulty')
     difficulty_name = difficulty_id_to_name[difficulty_id] if difficulty_id else "Любая"
         
+    rating_delta = context.user_data.get('rating_delta', 0)
+    rating_line = f"\n{format_rating_delta(rating_delta)}\n"
+
     keyboard = []
     
     if train_type == 'intensive' and incorrect_questions:
@@ -760,7 +774,8 @@ async def show_final_results(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"Всего вопросов: {total}\n"
                 f"Отвечено: {answered}\n"
                 f"Правильных ответов: {score}\n"
-                f"Процент правильных: {percentage:.1f}%\n\n")
+                f"Процент правильных: {percentage:.1f}%"
+                f"{rating_line}\n")
 
         await increment_field(telegram_id, 'marathon_completed_cards', answered)
         if total == answered:
@@ -780,7 +795,8 @@ async def show_final_results(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"Всего вопросов: {total}\n"
                 f"Отвечено: {answered}\n"
                 f"Правильных ответов: {score}\n"
-                f"Процент правильных: {percentage:.1f}%\n")
+                f"Процент правильных: {percentage:.1f}%"
+                f"{rating_line}")
 
         await increment_field(telegram_id, 'intensive_completed_cards', answered)
         if total == answered:
@@ -807,7 +823,8 @@ async def show_final_results(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"Всего вопросов: {total}\n"
                 f"Отвечено: {answered}\n"
                 f"Правильных ответов: {score}\n"
-                f"Процент правильных: {percentage:.1f}%\n\n"
+                f"Процент правильных: {percentage:.1f}%"
+                f"{rating_line}\n"
                 f"{fire}")
 
 
@@ -831,7 +848,7 @@ async def show_final_results(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keys_to_delete = ['test_questions', 'test_current_index', 'test_score',
                       'test_total_questions', 'test_difficulty', 'test_era', 
                       'test_answered_questions', 'current_answers', 
-                      'current_question', 'correct_answer', 'correct_answers_indices']
+                      'current_question', 'correct_answer', 'correct_answers_indices', 'rating_delta']
     
     for key in keys_to_delete:
         if key in context.user_data:
@@ -921,6 +938,13 @@ async def handle_answer_all(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         else:
             if 'correct_answers_indices' in context.user_data and current_index in context.user_data['correct_answers_indices']:
                 context.user_data['correct_answers_indices'].remove(current_index)
+
+        rating_delta = await apply_date_rating_points(
+            update.effective_user.id,
+            context.user_data.get('test_difficulty'),
+            is_correct,
+        )
+        context.user_data['rating_delta'] = context.user_data.get('rating_delta', 0) + rating_delta
 
         answered_questions.add(current_index)
         context.user_data['test_answered_questions'] = answered_questions
@@ -1083,7 +1107,8 @@ async def start_chronology_mode(update: Update, context: ContextTypes.DEFAULT_TY
 
     if not questions or len(questions) < 5:
         await query.edit_message_text(
-            "❌ Недостаточно вопросов для режима хронологии."
+            "❌ Недостаточно вопросов для режима хронологии.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📊 Главное меню", callback_data="back_main")]])
         )
         return
 
@@ -1241,13 +1266,16 @@ async def check_chronology(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     percent = (correct / 5) * 100
 
+    rating_delta = await apply_chronology_rating_points(update.effective_user.id, correct, 5)
+
     if correct == 5:
         await update_streak(telegram_id=update.effective_user.id)
 
     text = (
         f"📊 Результат хронологии\n\n"
         f"Правильно: {correct}/5\n"
-        f"Процент: {percent:.1f}%\n\n"
+        f"Процент: {percent:.1f}%\n"
+        f"{format_rating_delta(rating_delta)}\n\n"
         + "\n\n".join(result_lines)
     )
 

@@ -35,8 +35,8 @@ services:
       MARIADB_PASSWORD: "${DB_PASS}"
       MARIADB_DATABASE: "${DB_NAME}"
       MARIADB_ROOT_PASSWORD: "${DB_PASS}"
-    expose:
-      - 3306
+    ports:
+      - '3306:3306'
     volumes:
       - db_data:/var/lib/mysql
       - "./database/dumps/:/docker-entrypoint-initdb.d:ro"

@@ -1,5 +1,5 @@
 from utils.subscription_check import check_subscription
-from telegram import Update, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden
 import logging
@@ -15,7 +15,17 @@ from assets import (
 )
 from assets.Menu import back_menu_keyboard, get_choose_train, subscribe_keyboard, noth_keyboard
 from constants import MAIN_MENU, TRAINING
-from handles.db_handles import add_user, get_user_by_telegram_id, get_all_users, register_ad_click, get_ads_stats, update_streak
+from handles.db_handles import (
+    add_user,
+    get_user_by_telegram_id,
+    get_all_users,
+    register_ad_click,
+    get_ads_stats,
+    update_streak,
+    get_leaderboards,
+    toggle_rating_display_as,
+    toggle_rating_participation,
+)
 from handles.db_handles import get_streak_state_by_last_activity
 import asyncio
 import random
@@ -23,14 +33,16 @@ import pytz
 
 moscow_tz = pytz.timezone("Europe/Moscow")
 logger = logging.getLogger(__name__)
-ADMIN_TELEGRAM_IDS = {
-    int(x.strip()) for x in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip().isdigit()
-}
+
+def get_admin_telegram_ids() -> set[int]:
+    return {
+        int(x.strip()) for x in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip().isdigit()
+    }
 
 
 def get_main_keyboard_for_user(telegram_id: int):
     from assets.Menu import get_main_menu_keyboard
-    return get_main_menu_keyboard(telegram_id in ADMIN_TELEGRAM_IDS)
+    return get_main_menu_keyboard(telegram_id in get_admin_telegram_ids())
 
 SPECIAL_STREAK_MESSAGES = {
     1: "🎉 И ты начал! Первый день — самый важный. Ждём тебя завтра!",
@@ -185,7 +197,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     telegram_id = update.effective_user.id
     if "user" not in context.user_data:
-        db_user = await add_user(telegram_id)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     reply_markup = InlineKeyboardMarkup(get_main_keyboard_for_user(telegram_id))
@@ -235,7 +247,7 @@ async def check_subscription_after_start(update: Update, context: ContextTypes.D
     if "user" not in context.user_data:
         user = update.effective_user
         telegram_id = user.id
-        db_user = await add_user(telegram_id)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     telegram_id = update.effective_user.id
@@ -266,7 +278,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if "user" not in context.user_data:
         telegram_id = user.id
-        db_user = await add_user(telegram_id)
+        db_user = await add_user(telegram_id, update.effective_user.full_name)
         context.user_data["user"] = db_user
 
     telegram_id = user.id
@@ -320,6 +332,48 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
         reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
         await query.edit_message_text(message, reply_markup=reply_markup)
+
+    elif query.data in ('rating', 'rating_toggle_participation', 'rating_toggle_display'):
+        telegram_id = update.effective_user.id
+        if query.data == 'rating_toggle_participation':
+            await toggle_rating_participation(telegram_id)
+        elif query.data == 'rating_toggle_display':
+            await toggle_rating_display_as(telegram_id)
+
+        user = await get_user_by_telegram_id(telegram_id)
+        boards = await get_leaderboards(limit=5, telegram_id=telegram_id)
+        points = boards['points']
+        streaks = boards['streaks']
+
+        def render_rows(rows, suffix):
+            if not rows:
+                return "Пока никто не участвует."
+            return "\n".join(f"{idx}. {name} — {value:g} {suffix}" for idx, (name, value) in enumerate(rows, 1))
+
+        points_place = boards.get('points_place')
+        streak_place = boards.get('streak_place')
+        points_place_text = f"{points_place} место" if points_place else "вы не участвуете"
+        streak_place_text = f"{streak_place} место" if streak_place else "вы не участвуете"
+        participation = "🚫 Не участвую в рейтинге" if user.rating.show_in_rating else "✅ Участвую в рейтинге"
+        display = "👤 Имя без ссылки" if user.rating.display_as == 0 else "🔗 Имя кликабельное"
+        message = (
+            "🏆 Рейтинг\n\n"
+            "📅 Ежемесячный рейтинг по очкам:\n"
+            f"{render_rows(points, 'оч.')}\n\n"
+            "🔥 Рейтинг по стрикам:\n"
+            f"{render_rows(streaks, 'дн.')}\n\n"
+            f"Ваши очки в текущем месяце: {user.rating.monthly_points:g}\n"
+            f"Ваше место по очкам: {points_place_text}\n\n"
+            f"Ваш стрик: {user.streak_days} дней\n"
+            f"Ваше место по стрику: {streak_place_text}\n\n"
+            "Очки месяца не опускаются ниже 0 и сбрасываются при наступлении нового календарного месяца."
+        )
+        keyboard = [
+            [InlineKeyboardButton(participation, callback_data='rating_toggle_participation')],
+            [InlineKeyboardButton(display, callback_data='rating_toggle_display')],
+            [InlineKeyboardButton("⬅️ Назад", callback_data='back_main')],
+        ]
+        await query.edit_message_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
     elif query.data == 'stats':
         user = update.effective_user
@@ -409,7 +463,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     elif query.data == 'admin':
         telegram_id = update.effective_user.id
-        if telegram_id not in ADMIN_TELEGRAM_IDS:
+        if telegram_id not in get_admin_telegram_ids():
             reply_markup = InlineKeyboardMarkup(back_menu_keyboard)
             await query.edit_message_text("У вас нет доступа к администрированию.", reply_markup=reply_markup)
             return MAIN_MENU
