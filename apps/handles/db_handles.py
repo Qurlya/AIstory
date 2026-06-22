@@ -16,8 +16,12 @@ from database.models import (
     UserCultureStatsModel,
     UserEventStatsModel,
     UserModel,
+    UserPersonalityStatsModel,
     UserRatingModel,
     UserStreakModel,
+    PersonCategoryModel,
+    PersonModel,
+    CategoryModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,12 +99,13 @@ async def get_events_with_filters(difficulty: int = None, era_id: int = None) ->
 async def _create_user_satellites(session):
     event_stats = UserEventStatsModel(last_update_info=datetime.utcnow())
     culture_stats = UserCultureStatsModel(last_update_info=datetime.utcnow())
+    personality_stats = UserPersonalityStatsModel(last_update_info=datetime.utcnow())
     streak = UserStreakModel()
     rating = UserRatingModel()
     ad_stats = UserAdStatsModel()
-    session.add_all([event_stats, culture_stats, streak, rating, ad_stats])
+    session.add_all([event_stats, culture_stats, personality_stats, streak, rating, ad_stats])
     await session.flush()
-    return event_stats, culture_stats, streak, rating, ad_stats
+    return event_stats, culture_stats, personality_stats, streak, rating, ad_stats
 
 
 async def _ensure_user_satellites(session, user: UserModel) -> UserModel:
@@ -110,6 +115,9 @@ async def _ensure_user_satellites(session, user: UserModel) -> UserModel:
         changed = True
     if not user.culture_stats:
         user.culture_stats = UserCultureStatsModel(last_update_info=datetime.utcnow())
+        changed = True
+    if not user.personality_stats:
+        user.personality_stats = UserPersonalityStatsModel(last_update_info=datetime.utcnow())
         changed = True
     if not user.streak:
         user.streak = UserStreakModel()
@@ -138,12 +146,13 @@ async def add_user(telegram_id: int, username: str | None = None) -> UserModel:
             await session.refresh(user)
             return user
 
-        event_stats, culture_stats, streak, rating, ad_stats = await _create_user_satellites(session)
+        event_stats, culture_stats, personality_stats, streak, rating, ad_stats = await _create_user_satellites(session)
         user = UserModel(
             username=username or "",
             telegram_id=telegram_id,
             event_stats_id=event_stats.id,
             culture_stats_id=culture_stats.id,
+            personality_stats_id=personality_stats.id,
             streak_id=streak.id,
             rating_id=rating.id,
             ad_stats_id=ad_stats.id,
@@ -168,11 +177,15 @@ _FIELD_MODEL_MAP = {
     "culture_completed_cards": UserCultureStatsModel,
     "culture_completed_full": UserCultureStatsModel,
     "culture_true_cards": UserCultureStatsModel,
+    "personality_completed_cards": UserPersonalityStatsModel,
+    "personality_completed_full": UserPersonalityStatsModel,
+    "personality_true_cards": UserPersonalityStatsModel,
 }
 
 _FIELD_RELATION_ID = {
     UserEventStatsModel: UserModel.event_stats_id,
     UserCultureStatsModel: UserModel.culture_stats_id,
+    UserPersonalityStatsModel: UserModel.personality_stats_id,
 }
 
 
@@ -187,7 +200,7 @@ async def increment_field(telegram_id: int, field_name: str, value: int = 1):
             return
         await _ensure_user_satellites(session, user)
 
-        stats_id = getattr(user, "event_stats_id" if model is UserEventStatsModel else "culture_stats_id")
+        stats_id = getattr(user, {UserEventStatsModel: "event_stats_id", UserCultureStatsModel: "culture_stats_id", UserPersonalityStatsModel: "personality_stats_id"}[model])
         stats = await session.get(model, stats_id)
         if not stats:
             return
@@ -525,3 +538,49 @@ async def get_culture_answer_values(
         rows = result.scalars().all()
 
     return [str(value) for value in rows]
+
+
+async def get_person_categories() -> List[Dict]:
+    async with database.session() as session:
+        result = await session.execute(select(CategoryModel.id, CategoryModel.name).order_by(CategoryModel.name))
+        return [{"id": id_, "name": name} for id_, name in result.all()]
+
+
+async def get_personality_pairs(category_id: int | None = None, limit: int = 5) -> List[Dict]:
+    conditions = [PersonCategoryModel.value.is_not(None), PersonCategoryModel.value != ""]
+    if category_id is not None:
+        conditions.append(PersonCategoryModel.category_id == category_id)
+
+    async with database.session() as session:
+        stmt = (
+            select(
+                PersonModel.id,
+                PersonModel.person_name,
+                PersonCategoryModel.value,
+                CategoryModel.name.label("category_name"),
+            )
+            .join(PersonCategoryModel, PersonCategoryModel.person_id == PersonModel.id)
+            .join(CategoryModel, CategoryModel.id == PersonCategoryModel.category_id)
+            .where(and_(*conditions))
+            .order_by(func.rand())
+        )
+        rows = (await session.execute(stmt)).all()
+
+    pairs = []
+    used_persons = set()
+    used_values = set()
+    for person_id, person_name, value, category_name in rows:
+        value = str(value)
+        if person_id in used_persons or value in used_values:
+            continue
+        pairs.append({
+            "person_id": person_id,
+            "person_name": str(person_name),
+            "value": value,
+            "category_name": str(category_name),
+        })
+        used_persons.add(person_id)
+        used_values.add(value)
+        if len(pairs) >= limit:
+            break
+    return pairs

@@ -45,6 +45,19 @@ class UserCultureStatsModel(Base):
     last_update_info: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
 
 
+class UserPersonalityStatsModel(Base):
+    __tablename__ = "user_personality_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    personality_completed_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    personality_completed_full: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    personality_true_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_personality_completed_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_personality_completed_full: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    week_personality_true_cards: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_update_info: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow, nullable=False)
+
+
 class UserStreakModel(Base):
     __tablename__ = "user_streaks"
 
@@ -86,6 +99,7 @@ class UserModel(Base):
     telegram_id: Mapped[int] = mapped_column(nullable=False, index=True)
     event_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_event_stats.id"), nullable=True)
     culture_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_culture_stats.id"), nullable=True)
+    personality_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_personality_stats.id"), nullable=True)
     streak_id: Mapped[int | None] = mapped_column(ForeignKey("user_streaks.id"), nullable=True)
     rating_id: Mapped[int | None] = mapped_column(ForeignKey("user_ratings.id"), nullable=True)
     ad_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_ad_stats.id"), nullable=True)
@@ -93,12 +107,13 @@ class UserModel(Base):
 
     event_stats: Mapped[UserEventStatsModel | None] = relationship(lazy="selectin")
     culture_stats: Mapped[UserCultureStatsModel | None] = relationship(lazy="selectin")
+    personality_stats: Mapped[UserPersonalityStatsModel | None] = relationship(lazy="selectin")
     streak: Mapped[UserStreakModel | None] = relationship(lazy="selectin")
     rating: Mapped[UserRatingModel | None] = relationship(lazy="selectin")
     ad_stats: Mapped[UserAdStatsModel | None] = relationship(lazy="selectin")
 
     def __getattr__(self, name: str):
-        for related_name in ("event_stats", "culture_stats", "streak", "rating", "ad_stats"):
+        for related_name in ("event_stats", "culture_stats", "personality_stats", "streak", "rating", "ad_stats"):
             related = self.__dict__.get(related_name)
             if related is not None and hasattr(related, name):
                 return getattr(related, name)

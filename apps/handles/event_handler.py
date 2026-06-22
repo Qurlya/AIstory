@@ -190,6 +190,10 @@ async def training_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     elif query.data in ('culture_training', 'culture_intensive'):
         return await culture_dispatch(update, context)
 
+    elif query.data.startswith('personality'):
+        from .personality_handler import personality_dispatch
+        return await personality_dispatch(update, context)
+
     elif query.data == 'back_training':
         reply_markup = InlineKeyboardMarkup(get_choose_train(train_type == 'training'))
         await query.edit_message_text(getTrainingOptionalMenu(train_type), reply_markup=reply_markup)
@@ -1142,47 +1146,30 @@ async def render_chronology(update: Update, context: ContextTypes.DEFAULT_TYPE):
     used_events = context.user_data.get('chronology_used_events', set())
 
     keyboard = []
+    for i in range(5):
+        marker = "🟡 " if i == selected_date else "🔗 " if i in pairs else ""
+        keyboard.append([InlineKeyboardButton(f"{marker}{i + 1}", callback_data=f"chronology_date_{i}")])
 
     for i in range(5):
-        date_text = dates[i]
-
-        if i == selected_date:
-            date_text = "🟡 " + date_text
-
-        if i in pairs:
-            date_text = "🔗 " + date_text
-
-        keyboard.append([
-            InlineKeyboardButton(date_text, callback_data=f"chronology_date_{i}")
-        ])
-
-
-    for i in range(5):
-        event_text = events[i]
-
-        if i in used_events:
-            event_text = "🔒 " + event_text
-
-        keyboard.append([
-            InlineKeyboardButton(event_text, callback_data=f"chronology_event_{i}")
-        ])
+        marker = "🔒 " if i in used_events else ""
+        keyboard.append([InlineKeyboardButton(f"{marker}{i + 1}", callback_data=f"chronology_event_{i}")])
 
     keyboard.extend([
         [InlineKeyboardButton("✅ Проверить", callback_data="check_chronology")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="cancel_test")],
     ])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
+    dates_lines = [f"{i + 1}. {date}" for i, date in enumerate(dates)]
+    events_lines = [f"{i + 1}. {event}" for i, event in enumerate(events)]
+    text = (
+        "🧠 Сопоставьте даты и события:\n\n"
+        "Даты:\n" + "\n".join(dates_lines) + "\n\n"
+        "События:\n" + "\n".join(events_lines) + "\n\n"
+        "На плашках — цифры: выберите номер даты, затем номер события."
+    )
 
     try:
-        await query.edit_message_text(
-            "🧠 Сопоставьте даты и события:\n\n"
-            "1️⃣ Выберите дату\n"
-            "2️⃣ Затем выберите событие\n"
-            "Можно менять выбор до проверки.",
-            reply_markup=reply_markup
-        )
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             raise

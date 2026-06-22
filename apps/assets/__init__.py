@@ -16,6 +16,7 @@ from .Menu import (
     notification_and_back_keyboard,
     get_choose_train,
     culture_choose_menu,
+    events_dates_menu,
     get_main_menu_keyboard,
 )
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "notification_and_back_keyboard",
     "get_choose_train",
     "culture_choose_menu",
+    "events_dates_menu",
     "get_main_menu_keyboard",
 ]

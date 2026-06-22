@@ -3,6 +3,7 @@ from .user import (
     UserCultureStatsModel,
     UserEventStatsModel,
     UserModel,
+    UserPersonalityStatsModel,
     UserRatingModel,
     UserStreakModel,
 )
