@@ -8,4 +8,5 @@ venv
 poetry.lock
 /database/dumps/*
 /database/backups/*
-apps/assets/culture_photos/*
+*.JPG
+*.sql
