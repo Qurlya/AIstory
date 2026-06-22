@@ -6,9 +6,10 @@ from database.models import EraModel
 from .db_engine import database
 from .models.event import EventModel
 from .models.culture import CultureModel, CultureType
+from .models.person import PersonCategoryModel, PersonModel, CategoryModel
 
 
-async def parse_events_datafile(file, sheet_name: str) -> pd.DataFrame:
+async def parse_events_datafile(file: BytesIO, sheet_name: str) -> pd.DataFrame:
     df = pd.read_excel(file, sheet_name=sheet_name, engine='openpyxl')
     df['Difficulty'] = df['Difficulty'].fillna(0).astype('int64')
     df = df.dropna()
@@ -16,16 +17,18 @@ async def parse_events_datafile(file, sheet_name: str) -> pd.DataFrame:
     return df
 
 
-async def parse_culture_datafile(file, sheet_name: str) -> pd.DataFrame:
-    df = pd.read_excel(file, sheet_name=sheet_name, engine='openpyxl')
+def capitalize_first(value):
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    if not normalized:
+        return normalized
+    if len(normalized) >= 3 and normalized.startswith('«') and normalized.endswith('»'):
+        return '«' + normalized[1].upper() + normalized[2:-1].lower() + '»'
+    return normalized[0].upper() + normalized[1:].lower()
 
-    def capitalize_first(value):
-        if not isinstance(value, str):
-            return value
-        normalized = value.strip()
-        if not normalized:
-            return normalized
-        return normalized[0].upper() + normalized[1:]
+async def parse_culture_or_persons_datafile(file: BytesIO, sheet_name: str) -> pd.DataFrame:
+    df = pd.read_excel(file, sheet_name=sheet_name, engine='openpyxl')
 
     return df.applymap(capitalize_first)
 
@@ -69,7 +72,7 @@ async def load_events_to_db(file_: BytesIO, sheet_='Лист1'):
 
 
 async def load_culture_to_db(file_: BytesIO, sheet_='Лист1'):
-    result = await parse_culture_datafile(file_, sheet_)
+    result = await parse_culture_or_persons_datafile(file_, sheet_)
     count: int = 0
 
     async with database.session() as session:
@@ -91,6 +94,86 @@ async def load_culture_to_db(file_: BytesIO, sheet_='Лист1'):
 
             except Exception as e:
                 print(f"load_culture_to_db err: {str(e)}")
+                await session.rollback()
+                continue
+
+    return count
+
+
+async def load_persons_to_db(file_: BytesIO, sheet_: str = 'Лист1'):
+    result = await parse_culture_or_persons_datafile(file_, sheet_)
+    count: int = 0
+
+    COLUMN_TO_CATEGORY = {
+        'event': 'События',
+        'knowledge_area': 'Области знания',
+        'policy': 'Посты и политика',
+        'act_area': 'Сферы деятельности',
+        'war_event': 'Военные события',
+        'reform': 'Реформы',
+        'coeval': 'Современники',
+        'art': 'Произведения',
+        'party': 'Партии',
+        'activity': 'Деятельность',
+    }
+
+    async with database.session() as session:
+        category_map = {}
+        temp_db_categories = await session.execute(select(CategoryModel))
+        for cat in temp_db_categories.scalars():
+            category_map[cat.name] = cat.id
+
+        for cat_name in COLUMN_TO_CATEGORY.values():
+            if cat_name not in category_map:
+                new_cat = CategoryModel(name=cat_name)
+                session.add(new_cat)
+                await session.flush()
+                category_map[cat_name] = new_cat.id
+
+        await session.commit()
+
+        temp_db_persons = await session.execute(select(PersonModel))
+        db_persons_map = {p.person_name: p.id for p in temp_db_persons.scalars()}
+        current_persons = {}
+
+        for _, row in result.iterrows():
+            try:
+                person_name = str(row.get('name', '')).strip()
+
+                if not person_name or pd.isna(row.get('name')):
+                    continue
+
+                if person_name not in db_persons_map and person_name not in current_persons:
+                    new_person = PersonModel(
+                        person_name=person_name,
+                    )
+                    session.add(new_person)
+                    await session.flush()
+                    current_persons[person_name] = new_person.id
+                    db_persons_map[person_name] = new_person.id
+
+                person_id = current_persons.get(person_name) or db_persons_map.get(person_name)
+
+                for excel_col, category_name in COLUMN_TO_CATEGORY.items():
+                    value = row.get(excel_col)
+
+                    if pd.isna(value) or str(value).strip() == '':
+                        continue
+
+                    value = str(value).strip()
+
+                    category_entry = PersonCategoryModel(
+                        category_id=category_map[category_name],
+                        value=value,
+                        person_id=person_id,
+                    )
+                    session.add(category_entry)
+                    count += 1
+
+                await session.commit()
+
+            except Exception as e:
+                print(f"load_persons_to_db err: {str(e)}")
                 await session.rollback()
                 continue
 

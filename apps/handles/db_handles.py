@@ -8,7 +8,7 @@ from sqlalchemy import select, and_, update, text, func, case, desc
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from database import load_culture_to_db, load_events_to_db, database
+from database import load_culture_to_db, load_events_to_db, load_persons_to_db, database
 from database.models import (
     EventModel,
     EraModel,
@@ -37,7 +37,15 @@ async def load_datafile_to_db(update: Update, context: ContextTypes.DEFAULT_TYPE
     bio = BytesIO()
     await file.download_to_memory(bio)
     try:
-        rows_count = (await load_culture_to_db(bio) if filename.find('culture')!=(-1) else await load_events_to_db(bio))
+        rows_count: int = 0
+        match filename:
+            case 'culture.xlsx':
+                rows_count = await load_culture_to_db(bio)
+            case 'events.xlsx':
+                rows_count = await load_events_to_db(bio)
+            case 'persons.xlsx':
+                rows_count = await load_persons_to_db(bio)
+        
         await update.message.reply_text(f'Loaded {rows_count} rows')
     except Exception as e:
         logger.exception("Ошибка загрузки файла %s в БД", filename)
