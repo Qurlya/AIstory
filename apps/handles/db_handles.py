@@ -39,11 +39,11 @@ async def load_datafile_to_db(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         rows_count: int = 0
         match filename:
-            case 'culture':
+            case 'culture.xlsx':
                 rows_count = await load_culture_to_db(bio)
-            case 'events':
+            case 'events.xlsx':
                 rows_count = await load_events_to_db(bio)
-            case 'persons':
+            case 'persons.xlsx':
                 rows_count = await load_persons_to_db(bio)
         
         await update.message.reply_text(f'Loaded {rows_count} rows')

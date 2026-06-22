@@ -8,4 +8,4 @@ from .user import (
 )
 from .event import EventModel, EraModel
 from .culture import CultureModel
-from .person import PersonCategoryModel, PersonModel
+from .person import PersonCategoryModel, PersonModel, CategoryModel
