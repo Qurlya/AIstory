@@ -62,8 +62,9 @@ def main():
                 CallbackQueryHandler(check_subscription_after_start, pattern='^check_sub_after_start$'),
             ],
             TRAINING: [
+                CallbackQueryHandler(personality_dispatch, pattern='^personality'),
                 CallbackQueryHandler(training_menu,
-                                     pattern='^(chronology|date_event|event_date|back_main|back_training|continue_marathon|culture_training|culture_intensive|culture_exit_main|personality|personality_training|personality_intensive|personality_category_-1|personality_category_[0-9]+)$')
+                                     pattern='^(chronology|date_event|event_date|back_main|back_training|continue_marathon|culture_training|culture_intensive|culture_exit_main)$')
             ],
             SETTING_TEST: [
                 CallbackQueryHandler(era_diff_menu,

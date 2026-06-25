@@ -106,9 +106,9 @@ async def render_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
     used_values = session.get("used_values", set())
 
     keyboard = []
-    for i, _ in enumerate(pairs):
+    for i, pair in enumerate(pairs):
         marker = "🟡 " if i == selected else "🔗 " if i in matches else ""
-        keyboard.append([InlineKeyboardButton(f"{marker}{i + 1}", callback_data=f"personality_person_{i}")])
+        keyboard.append([InlineKeyboardButton(f"{marker}{pair['person_name']}", callback_data=f"personality_person_{i}")])
     for i, _ in enumerate(values):
         marker = "🔒 " if i in used_values else ""
         keyboard.append([InlineKeyboardButton(f"{marker}{i + 1}", callback_data=f"personality_value_{i}")])
@@ -118,13 +118,15 @@ async def render_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("⬅️ Назад", callback_data="personality_cancel")],
     ])
 
-    people_lines = [f"{i + 1}. {pair['person_name']}" for i, pair in enumerate(pairs)]
     value_lines = [f"{i + 1}. {value}" for i, value in enumerate(values)]
+    selected_line = ""
+    if selected is not None:
+        selected_line = f"\nВыбрана личность: {pairs[selected]['person_name']}\n"
     text = (
-        "👤 Личности: сопоставьте личности и значения\n\n"
-        "Личности:\n" + "\n".join(people_lines) + "\n\n"
-        "Значения:\n" + "\n".join(value_lines) + "\n\n"
-        "На плашках — цифры: выберите номер личности, затем номер значения."
+        "👤 Личности: сопоставьте личность и факт\n\n"
+        "Факты:\n" + "\n".join(value_lines) + "\n"
+        f"{selected_line}\n"
+        "Сначала нажмите плашку с личностью, затем цифровую плашку факта."
     )
     try:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -156,7 +158,7 @@ async def personality_dispatch(update: Update, context: ContextTypes.DEFAULT_TYP
         from handles.start_menu import get_admin_telegram_ids
         await query.edit_message_text(
             getMainMenu(),
-            reply_markup=InlineKeyboardMarkup(get_main_keyboard_for_user(update.effective_user.id in get_admin_telegram_ids())),
+            reply_markup=InlineKeyboardMarkup(get_main_menu_keyboard(update.effective_user.id in get_admin_telegram_ids())),
         )
         return MAIN_MENU
 
@@ -220,14 +222,26 @@ async def _check_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
         session["wrong_pairs"] = wrong_pairs
         keyboard.append([InlineKeyboardButton("➡️ Продолжить интенсив", callback_data="personality_continue_intensive")])
     else:
-        keyboard.append([InlineKeyboardButton("🔁 Попробовать снова", callback_data="personality_retry")])
+        if session["mode"] == "intensive":
+            keyboard.append([InlineKeyboardButton("👤 Выбрать категорию", callback_data="personality_intensive")])
+        else:
+            keyboard.append([InlineKeyboardButton("🔁 Попробовать снова", callback_data="personality_retry")])
     keyboard.append([InlineKeyboardButton("📊 Главное меню", callback_data="back_main")])
+
+    intensive_note = ""
+    if session["mode"] == "intensive":
+        intensive_note = (
+            "\n\n❌ Нажмите «Продолжить интенсив», чтобы повторить только ошибки."
+            if wrong_pairs
+            else "\n\n🎉 Интенсив завершён: все карточки решены правильно."
+        )
 
     text = (
         f"📊 Результат режима «Личности»\n\n"
         f"Правильно: {correct}/{total}\n"
         f"Процент: {(correct / total * 100):.1f}%\n"
-        f"{format_rating_delta(rating_delta)}\n\n" + "\n\n".join(result_lines)
+        f"{format_rating_delta(rating_delta)}\n"
+        f"{intensive_note}\n\n" + "\n\n".join(result_lines)
     )
     await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
     if not (session["mode"] == "intensive" and wrong_pairs):
