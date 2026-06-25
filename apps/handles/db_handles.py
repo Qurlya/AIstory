@@ -584,3 +584,33 @@ async def get_personality_pairs(category_id: int | None = None, limit: int = 5) 
         if len(pairs) >= limit:
             break
     return pairs
+
+async def get_personality_distractor_values(
+    category_id: int | None = None,
+    exclude_values: list[str] | None = None,
+    limit: int = 2,
+) -> List[str]:
+    exclude_values = exclude_values or []
+    conditions = [PersonCategoryModel.value.is_not(None), PersonCategoryModel.value != ""]
+    if category_id is not None:
+        conditions.append(PersonCategoryModel.category_id == category_id)
+    if exclude_values:
+        conditions.append(PersonCategoryModel.value.not_in(exclude_values))
+
+    async with database.session() as session:
+        stmt = (
+            select(PersonCategoryModel.value)
+            .where(and_(*conditions))
+            .distinct()
+            .order_by(func.rand())
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+
+    distractors = []
+    for value in rows:
+        value = str(value)
+        if value not in distractors:
+            distractors.append(value)
+        if len(distractors) >= limit:
+            break
+    return distractors
