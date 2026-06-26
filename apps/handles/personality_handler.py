@@ -152,9 +152,10 @@ async def render_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
     has_long_facts = any(len(value) > PERSONALITY_LONG_FACT_LIMIT for value in values)
 
     keyboard = []
+    abcd = ['А', 'Б', 'В', 'Г']
     for i, pair in enumerate(pairs):
         marker = "🟡 " if i == selected else "🔗 " if i in matches else ""
-        keyboard.append([InlineKeyboardButton(f"{marker}— {pair['person_name']}", callback_data=f"personality_person_{i}")])
+        keyboard.append([InlineKeyboardButton(f"{marker}{abcd[i]}) {pair['person_name']}", callback_data=f"personality_person_{i}")])
     for i, value in enumerate(values):
         marker = "🔒 " if i in used_values else ""
         button_value = str(i + 1) if has_long_facts or len(value) > PERSONALITY_LONG_FACT_LIMIT else value
