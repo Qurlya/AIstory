@@ -96,38 +96,38 @@ async def get_events_with_filters(difficulty: int = None, era_id: int = None) ->
         events = result.all()
         return [{'name': name, 'date': date} for name, date in events]
 
-async def _create_user_satellites(session):
-    event_stats = UserEventStatsModel(last_update_info=datetime.utcnow())
-    culture_stats = UserCultureStatsModel(last_update_info=datetime.utcnow())
-    personality_stats = UserPersonalityStatsModel(last_update_info=datetime.utcnow())
-    streak = UserStreakModel()
-    rating = UserRatingModel()
-    ad_stats = UserAdStatsModel()
-    session.add_all([event_stats, culture_stats, personality_stats, streak, rating, ad_stats])
+async def _create_user_satellites(session, user_id: int):
+    satellites = [
+        UserEventStatsModel(id=user_id, last_update_info=datetime.utcnow()),
+        UserCultureStatsModel(id=user_id, last_update_info=datetime.utcnow()),
+        UserPersonalityStatsModel(id=user_id, last_update_info=datetime.utcnow()),
+        UserStreakModel(id=user_id),
+        UserRatingModel(id=user_id),
+        UserAdStatsModel(id=user_id),
+    ]
+    session.add_all(satellites)
     await session.flush()
-    return event_stats, culture_stats, personality_stats, streak, rating, ad_stats
 
 
 async def _ensure_user_satellites(session, user: UserModel) -> UserModel:
+    satellite_models = (
+        ("event_stats", UserEventStatsModel, {"last_update_info": datetime.utcnow()}),
+        ("culture_stats", UserCultureStatsModel, {"last_update_info": datetime.utcnow()}),
+        ("personality_stats", UserPersonalityStatsModel, {"last_update_info": datetime.utcnow()}),
+        ("streak", UserStreakModel, {}),
+        ("rating", UserRatingModel, {}),
+        ("ad_stats", UserAdStatsModel, {}),
+    )
+
     changed = False
-    if not user.event_stats:
-        user.event_stats = UserEventStatsModel(last_update_info=datetime.utcnow())
-        changed = True
-    if not user.culture_stats:
-        user.culture_stats = UserCultureStatsModel(last_update_info=datetime.utcnow())
-        changed = True
-    if not user.personality_stats:
-        user.personality_stats = UserPersonalityStatsModel(last_update_info=datetime.utcnow())
-        changed = True
-    if not user.streak:
-        user.streak = UserStreakModel()
-        changed = True
-    if not user.rating:
-        user.rating = UserRatingModel()
-        changed = True
-    if not user.ad_stats:
-        user.ad_stats = UserAdStatsModel()
-        changed = True
+    for attr_name, model, defaults in satellite_models:
+        satellite = await session.get(model, user.id)
+        if satellite is None:
+            satellite = model(id=user.id, **defaults)
+            session.add(satellite)
+            changed = True
+        setattr(user, attr_name, satellite)
+
     if changed:
         await session.flush()
     return user
@@ -146,19 +146,11 @@ async def add_user(telegram_id: int, username: str | None = None) -> UserModel:
             await session.refresh(user)
             return user
 
-        event_stats, culture_stats, personality_stats, streak, rating, ad_stats = await _create_user_satellites(session)
-        user = UserModel(
-            username=username or "",
-            telegram_id=telegram_id,
-            event_stats_id=event_stats.id,
-            culture_stats_id=culture_stats.id,
-            personality_stats_id=personality_stats.id,
-            streak_id=streak.id,
-            rating_id=rating.id,
-            ad_stats_id=ad_stats.id,
-        )
-
+        user = UserModel(username=username or "", telegram_id=telegram_id)
         session.add(user)
+        await session.flush()
+        await _create_user_satellites(session, user.id)
+        await _ensure_user_satellites(session, user)
         await session.commit()
         await session.refresh(user)
         return user
@@ -182,13 +174,6 @@ _FIELD_MODEL_MAP = {
     "personality_true_cards": UserPersonalityStatsModel,
 }
 
-_FIELD_RELATION_ID = {
-    UserEventStatsModel: UserModel.event_stats_id,
-    UserCultureStatsModel: UserModel.culture_stats_id,
-    UserPersonalityStatsModel: UserModel.personality_stats_id,
-}
-
-
 async def increment_field(telegram_id: int, field_name: str, value: int = 1):
     model = _FIELD_MODEL_MAP.get(field_name)
     if model is None or not hasattr(model, field_name):
@@ -200,7 +185,7 @@ async def increment_field(telegram_id: int, field_name: str, value: int = 1):
             return
         await _ensure_user_satellites(session, user)
 
-        stats_id = getattr(user, {UserEventStatsModel: "event_stats_id", UserCultureStatsModel: "culture_stats_id", UserPersonalityStatsModel: "personality_stats_id"}[model])
+        stats_id = user.id
         stats = await session.get(model, stats_id)
         if not stats:
             return
@@ -260,7 +245,7 @@ async def update_streak(telegram_id: int, reset_if_missed: bool = False) -> None
         if not reset_if_missed:
             update_values["last_activity"] = now
 
-        await session.execute(update(UserStreakModel).where(UserStreakModel.id == user.streak_id).values(**update_values))
+        await session.execute(update(UserStreakModel).where(UserStreakModel.id == user.id).values(**update_values))
         await session.commit()
 
 
@@ -313,7 +298,7 @@ async def register_ad_click(telegram_id: int) -> None:
             update_values["ad_clicked_once"] = 1
         update_values["ad_last_click_at"] = now
 
-        await session.execute(update(UserAdStatsModel).where(UserAdStatsModel.id == user.ad_stats_id).values(**update_values))
+        await session.execute(update(UserAdStatsModel).where(UserAdStatsModel.id == user.id).values(**update_values))
         await session.commit()
 
 
@@ -436,15 +421,15 @@ async def get_leaderboards(limit: int = 5, telegram_id: int | None = None) -> di
         )
         points_stmt = (
             select(UserModel)
-            .join(UserRatingModel, UserModel.rating_id == UserRatingModel.id)
-            .where(UserRatingModel.show_in_rating == 1)
+            .join(UserRatingModel, UserModel.id == UserRatingModel.id)
+            .where(UserRatingModel.show_in_rating == 1, UserRatingModel.monthly_points > 0)
             .order_by(desc(UserRatingModel.monthly_points), UserModel.id)
         )
         streak_stmt = (
             select(UserModel)
-            .join(UserRatingModel, UserModel.rating_id == UserRatingModel.id)
-            .join(UserStreakModel, UserModel.streak_id == UserStreakModel.id)
-            .where(UserRatingModel.show_in_rating == 1)
+            .join(UserRatingModel, UserModel.id == UserRatingModel.id)
+            .join(UserStreakModel, UserModel.id == UserStreakModel.id)
+            .where(UserRatingModel.show_in_rating == 1, UserStreakModel.streak_days > 0)
             .order_by(desc(UserStreakModel.streak_days), UserModel.id)
         )
         all_point_users = list((await session.execute(points_stmt)).scalars().all())

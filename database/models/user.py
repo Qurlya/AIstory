@@ -1,7 +1,7 @@
 import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, Float, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from database import Base
@@ -97,20 +97,38 @@ class UserModel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), nullable=True)
     telegram_id: Mapped[int] = mapped_column(nullable=False, index=True)
-    event_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_event_stats.id"), nullable=True)
-    culture_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_culture_stats.id"), nullable=True)
-    personality_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_personality_stats.id"), nullable=True)
-    streak_id: Mapped[int | None] = mapped_column(ForeignKey("user_streaks.id"), nullable=True)
-    rating_id: Mapped[int | None] = mapped_column(ForeignKey("user_ratings.id"), nullable=True)
-    ad_stats_id: Mapped[int | None] = mapped_column(ForeignKey("user_ad_stats.id"), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    event_stats: Mapped[UserEventStatsModel | None] = relationship(lazy="selectin")
-    culture_stats: Mapped[UserCultureStatsModel | None] = relationship(lazy="selectin")
-    personality_stats: Mapped[UserPersonalityStatsModel | None] = relationship(lazy="selectin")
-    streak: Mapped[UserStreakModel | None] = relationship(lazy="selectin")
-    rating: Mapped[UserRatingModel | None] = relationship(lazy="selectin")
-    ad_stats: Mapped[UserAdStatsModel | None] = relationship(lazy="selectin")
+    event_stats: Mapped[UserEventStatsModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserEventStatsModel.id),
+        uselist=False,
+    )
+    culture_stats: Mapped[UserCultureStatsModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserCultureStatsModel.id),
+        uselist=False,
+    )
+    personality_stats: Mapped[UserPersonalityStatsModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserPersonalityStatsModel.id),
+        uselist=False,
+    )
+    streak: Mapped[UserStreakModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserStreakModel.id),
+        uselist=False,
+    )
+    rating: Mapped[UserRatingModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserRatingModel.id),
+        uselist=False,
+    )
+    ad_stats: Mapped[UserAdStatsModel | None] = relationship(
+        lazy="selectin",
+        primaryjoin=lambda: UserModel.id == foreign(UserAdStatsModel.id),
+        uselist=False,
+    )
 
     def __getattr__(self, name: str):
         for related_name in ("event_stats", "culture_stats", "personality_stats", "streak", "rating", "ad_stats"):
