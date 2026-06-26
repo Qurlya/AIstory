@@ -288,7 +288,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if query.data == 'events_dates':
         reply_markup = InlineKeyboardMarkup(events_dates_menu)
         await query.edit_message_text(getTrainingOptionalMenu('events_dates'), reply_markup=reply_markup)
-        return TRAINING
+        return MAIN_MENU
 
     if query.data in ['training', 'marathon', 'intensive']:
         reply_markup = InlineKeyboardMarkup(get_choose_train(query.data == 'training'))
