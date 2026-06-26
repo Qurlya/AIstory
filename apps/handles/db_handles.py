@@ -557,6 +557,7 @@ async def get_personality_pairs(category_id: int | None = None, limit: int = 5) 
                 PersonModel.id,
                 PersonModel.person_name,
                 PersonCategoryModel.value,
+                CategoryModel.id.label("category_id"),
                 CategoryModel.name.label("category_name"),
             )
             .join(PersonCategoryModel, PersonCategoryModel.person_id == PersonModel.id)
@@ -569,7 +570,7 @@ async def get_personality_pairs(category_id: int | None = None, limit: int = 5) 
     pairs = []
     used_persons = set()
     used_values = set()
-    for person_id, person_name, value, category_name in rows:
+    for person_id, person_name, value, category_id, category_name in rows:
         value = str(value)
         if person_id in used_persons or value in used_values:
             continue
@@ -577,6 +578,7 @@ async def get_personality_pairs(category_id: int | None = None, limit: int = 5) 
             "person_id": person_id,
             "person_name": str(person_name),
             "value": value,
+            "category_id": category_id,
             "category_name": str(category_name),
         })
         used_persons.add(person_id)

@@ -64,8 +64,23 @@ async def show_personality_categories(update: Update, context: ContextTypes.DEFA
     return TRAINING
 
 
+async def _resolve_personality_category(category_id: int) -> int | None:
+    if category_id != PERSONALITY_CATEGORY_ANY:
+        return category_id
+
+    categories = await get_person_categories()
+    random.shuffle(categories)
+    for category in categories:
+        pairs = await get_personality_pairs(category["id"], limit=PERSONALITY_MATCHES_PER_TEST)
+        if len(pairs) >= PERSONALITY_MATCHES_PER_TEST:
+            return category["id"]
+    return None
+
+
 async def _build_personality_test(category_id: int, pairs: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
-    category_filter = None if category_id == PERSONALITY_CATEGORY_ANY else category_id
+    category_filter = pairs[0].get("category_id") if pairs else await _resolve_personality_category(category_id)
+    if category_filter is None:
+        return None
     pairs = pairs or await get_personality_pairs(category_filter, limit=PERSONALITY_MATCHES_PER_TEST)
     if len(pairs) < PERSONALITY_MATCHES_PER_TEST:
         return None
@@ -78,7 +93,7 @@ async def _build_personality_test(category_id: int, pairs: list[dict[str, Any]] 
     )
     values = correct_values + distractors
     random.shuffle(values)
-    return {"pairs": pairs, "values": values}
+    return {"pairs": pairs, "values": values, "category_id": category_filter}
 
 
 async def _start_current_personality_test(update: Update, context: ContextTypes.DEFAULT_TYPE, test_data: dict[str, Any]):
@@ -87,6 +102,7 @@ async def _start_current_personality_test(update: Update, context: ContextTypes.
         "active": True,
         "pairs": test_data["pairs"],
         "values": test_data["values"],
+        "current_category_id": test_data.get("category_id"),
         "matches": {},
         "selected_person": None,
         "used_values": set(),
@@ -138,7 +154,7 @@ async def render_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keyboard = []
     for i, pair in enumerate(pairs):
         marker = "🟡 " if i == selected else "🔗 " if i in matches else ""
-        keyboard.append([InlineKeyboardButton(f"{marker}{pair['person_name']}", callback_data=f"personality_person_{i}")])
+        keyboard.append([InlineKeyboardButton(f"{marker}— {pair['person_name']}", callback_data=f"personality_person_{i}")])
     for i, value in enumerate(values):
         marker = "🔒 " if i in used_values else ""
         button_value = str(i + 1) if has_long_facts or len(value) > PERSONALITY_LONG_FACT_LIMIT else value
