@@ -10,3 +10,4 @@ poetry.lock
 /database/backups/*
 *.JPG
 *.sql
+*.xlsx
