@@ -263,10 +263,11 @@ async def _check_personality(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update_streak(update.effective_user.id)
 
     if session.get("mode") == "intensive":
-        if wrong_pairs:
-            wrong_values = {pair["value"] for pair in wrong_pairs}
-            failed_values = [value for value in session["values"] if value in wrong_values]
-            session.setdefault("intensive_wrong_tests", []).append({"pairs": wrong_pairs, "values": failed_values})
+        if correct < total:
+            session.setdefault("intensive_wrong_tests", []).append({
+                "pairs": [dict(pair) for pair in pairs],
+                "values": list(session["values"]),
+            })
         return await _after_intensive_test(update, context, correct, total, result_lines, rating_delta)
 
     await increment_field(update.effective_user.id, "personality_completed_full", 1)
@@ -312,7 +313,7 @@ async def _after_intensive_test(
         wrong_count = len(session.get("intensive_wrong_tests", []))
         if wrong_count:
             keyboard = [[InlineKeyboardButton("➡️ Повторить ошибки", callback_data="personality_continue_intensive")]]
-            note = f"\n\nОшибочных сопоставлений: {wrong_count}. Повторяем только их, пока всё не будет верно."
+            note = f"\n\nОшибочных карточек: {wrong_count}. Повторяем только их, пока всё не будет верно."
         else:
             await increment_field(update.effective_user.id, "personality_completed_full", 1)
             keyboard = [[InlineKeyboardButton("👤 Выбрать категорию", callback_data="personality_intensive")]]
