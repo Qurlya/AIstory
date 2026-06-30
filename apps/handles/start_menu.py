@@ -9,6 +9,7 @@ from assets import (
     getTrainingOptionalMenu,
     main_menu_keybord,
     culture_choose_menu,
+    events_dates_menu,
     get_ads_text,
     get_streak_extinguished_text,
     get_streak_warning_text,
@@ -284,6 +285,11 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     telegram_id = user.id
     await update_streak(telegram_id, reset_if_missed=True)
 
+    if query.data == 'events_dates':
+        reply_markup = InlineKeyboardMarkup(events_dates_menu)
+        await query.edit_message_text(getTrainingOptionalMenu('events_dates'), reply_markup=reply_markup)
+        return MAIN_MENU
+
     if query.data in ['training', 'marathon', 'intensive']:
         reply_markup = InlineKeyboardMarkup(get_choose_train(query.data == 'training'))
 
@@ -293,6 +299,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         context.user_data['train_type'] = query.data
         return TRAINING
+
+    elif query.data == 'personality':
+        from handles.personality_handler import show_personality_format_menu
+        return await show_personality_format_menu(update, context)
 
     elif query.data == 'culture':
         reply_markup = InlineKeyboardMarkup(culture_choose_menu)
@@ -420,6 +430,14 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         week_culture_correct = user.week_culture_true_cards
         week_culture_percent = (week_culture_correct / week_culture_total * 100) if week_culture_total > 0 else 0
 
+        personality_total = user.personality_completed_cards
+        personality_correct = user.personality_true_cards
+        personality_percent = (personality_correct / personality_total * 100) if personality_total > 0 else 0
+
+        week_personality_total = user.week_personality_completed_cards
+        week_personality_correct = user.week_personality_true_cards
+        week_personality_percent = (week_personality_correct / week_personality_total * 100) if week_personality_total > 0 else 0
+
         # Формируем сообщение
         message = (
             f"📊 Ваша статистика\n\n"
@@ -435,7 +453,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"   • Полностью пройдено: {user.marathon_completed_full}\n"
             f"🏛 Архитектура:\n"
             f"   • Карточки: {culture_correct}/{culture_total} ({culture_percent:.1f}%)\n"
-            f"   • Полностью пройдено: {user.culture_completed_full}\n\n"
+            f"   • Полностью пройдено: {user.culture_completed_full}\n"
+            f"👤 Личности:\n"
+            f"   • Карточки: {personality_correct}/{personality_total} ({personality_percent:.1f}%)\n"
+            f"   • Полностью пройдено: {user.personality_completed_full}\n\n"
             f"📅 За текущую неделю:\n"
             f"🎯 Тренировка:\n"
             f"   • Карточки: {week_training_correct}/{week_training_total} ({week_training_percent:.1f}%)\n"
@@ -448,7 +469,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"   • Полностью пройдено: {user.week_marathon_completed_full}\n"
             f"🏛 Архитектура:\n"
             f"   • Карточки: {week_culture_correct}/{week_culture_total} ({week_culture_percent:.1f}%)\n"
-            f"   • Полностью пройдено: {user.week_culture_completed_full}\n\n"
+            f"   • Полностью пройдено: {user.week_culture_completed_full}\n"
+            f"👤 Личности:\n"
+            f"   • Карточки: {week_personality_correct}/{week_personality_total} ({week_personality_percent:.1f}%)\n"
+            f"   • Полностью пройдено: {user.week_personality_completed_full}\n\n"
             f"🔥 Текущая серия: {user.streak_days} дней"
         )
 

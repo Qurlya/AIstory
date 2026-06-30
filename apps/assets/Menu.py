@@ -1,9 +1,8 @@
 from telegram import InlineKeyboardButton
 
 main_menu_keybord = [
-    [InlineKeyboardButton("🎯 Тренировка", callback_data='training')],
-    [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
-    [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
+    [InlineKeyboardButton("🗓 События и даты", callback_data='events_dates')],
+    [InlineKeyboardButton("👤 Личности", callback_data='personality')],
     [InlineKeyboardButton("🏛 Архитектура", callback_data='culture')],
     [InlineKeyboardButton("📊 Моя статистика", callback_data='stats')],
     [InlineKeyboardButton("🏆 Рейтинг", callback_data='rating')],
@@ -56,5 +55,12 @@ noth_keyboard = [
 culture_choose_menu = [
     [InlineKeyboardButton("🎯 Тренировка", callback_data='culture_training')],
     [InlineKeyboardButton("⚡ Интенсив", callback_data='culture_intensive')],
+    [InlineKeyboardButton("⬅️ Назад", callback_data='back_main')],
+]
+
+events_dates_menu = [
+    [InlineKeyboardButton("🎯 Тренировка", callback_data='training')],
+    [InlineKeyboardButton("⚡ Интенсив", callback_data='intensive')],
+    [InlineKeyboardButton("🏃 Марафон", callback_data='marathon')],
     [InlineKeyboardButton("⬅️ Назад", callback_data='back_main')],
 ]

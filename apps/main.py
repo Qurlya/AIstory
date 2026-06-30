@@ -13,6 +13,7 @@ from handles import (
     back_to_training_from_test, save_and_exit_marathon, handle_chronology, check_chronology, start_chronology_mode,
     culture_dispatch
 )
+from handles.personality_handler import personality_dispatch
 from database import database
 from handles.start_menu import check_subscription_after_start, notify_maintenance, send_daily_streak_reminder
 
@@ -57,10 +58,11 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             MAIN_MENU: [
-                CallbackQueryHandler(main_menu, pattern='^(training|intensive|marathon|culture|ads|admin|streak|stats|rating|rating_toggle_participation|rating_toggle_display|back_main)$'),
+                CallbackQueryHandler(main_menu, pattern='^(events_dates|training|intensive|marathon|culture|personality|ads|admin|streak|stats|rating|rating_toggle_participation|rating_toggle_display|back_main)$'),
                 CallbackQueryHandler(check_subscription_after_start, pattern='^check_sub_after_start$'),
             ],
             TRAINING: [
+                CallbackQueryHandler(personality_dispatch, pattern='^personality'),
                 CallbackQueryHandler(training_menu,
                                      pattern='^(chronology|date_event|event_date|back_main|back_training|continue_marathon|culture_training|culture_intensive|culture_exit_main)$')
             ],
@@ -84,6 +86,7 @@ def main():
                 CallbackQueryHandler(start_chronology_mode, pattern='^chronology_retry$'),
                 CallbackQueryHandler(save_and_exit_marathon, pattern='^save_and_exit$'),
                 CallbackQueryHandler(culture_dispatch, pattern='^culture_'),
+                CallbackQueryHandler(personality_dispatch, pattern='^personality_'),
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)],
